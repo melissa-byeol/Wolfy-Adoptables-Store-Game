@@ -83,22 +83,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-    // --- EVENT LISTENERS: CONTROLES DE JUEGO ---
+       // --- EVENT LISTENERS: CONTROLES DE JUEGO ---
 
     // Abrir / Cerrar Tienda
-    btnToggleShop.addEventListener('click', () => {
-        toggleShopState(); // Llama a la función en logic.js
-        
-        // Actualizar apariencia del botón manualmente por seguridad
-        if (gameState.shopStatus === 'open') {
-            btnToggleShop.textContent = "CERRAR TIENDA";
-            btnToggleShop.className = "btn danger large";
-        } else {
-            btnToggleShop.textContent = "ABRIR TIENDA";
-            btnToggleShop.className = "btn success large";
-        }
-    });
-
+    if (btnToggleShop) {
+        btnToggleShop.addEventListener('click', () => {
+            toggleShopState(); 
+            
+            if (gameState.shopStatus === 'open') {
+                btnToggleShop.textContent = "CERRAR TIENDA";
+                btnToggleShop.className = "btn danger large";
+            } else {
+                btnToggleShop.textContent = "ABRIR TIENDA";
+                btnToggleShop.className = "btn success large";
+            }
+        });
+    } else {
+        console.warn("⚠️ Advertencia: No se encontró el botón #btn-toggle-shop en el HTML.");
+    }
 
     // --- EVENT LISTENERS: MODAL DE PAGO ---
 
