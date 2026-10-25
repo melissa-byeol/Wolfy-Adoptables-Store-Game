@@ -34,24 +34,6 @@
                     <!-- Generado por JS -->
                 </div>
             </section>
-
-                    <!-- ZONA DE REPOSICIÓN / ALMACÉN -->
-        <section class="restock-panel">
-            <h3>📦 ALMACÉN CENTRAL</h3>
-            <div class="restock-info">
-                <p>Lobito Básico (Blanco)</p>
-                <span class="price-tag">$5.00 / lote (12 uds)</span>
-            </div>
-            
-            <div class="restock-controls">
-                <button id="btn-buy-lote" class="btn primary small">+ Comprar 1 Lote ($5)</button>
-                <button id="btn-buy-max" class="btn success small">Rellenar Todo (Hasta 72)</button>
-            </div>
-            
-            <div class="stock-warning hidden" id="low-stock-alert">
-                ⚠️ ¡Poco stock! Los clientes se irán enfadados.
-            </div>
-        </section>
             
             <!-- ZONA DE PASILLOS (Donde caminan los clientes) -->
             <section class="aisle-area">
@@ -71,6 +53,24 @@
             </section>
         </main>
 
+         <!-- ZONA DE REPOSICIÓN / ALMACÉN -->
+        <section class="restock-panel">
+            <h3>📦 ALMACÉN CENTRAL</h3>
+            <div class="restock-info">
+                <p>Lobito Básico (Blanco)</p>
+                <span class="price-tag">$5.00 / lote (12 uds)</span>
+            </div>
+            
+            <div class="restock-controls">
+                <button id="btn-buy-lote" class="btn primary small">+ Comprar 1 Lote ($5)</button>
+                <button id="btn-buy-max" class="btn success small">Rellenar Todo (Hasta 72)</button>
+            </div>
+            
+            <div class="stock-warning hidden" id="low-stock-alert">
+                ⚠️ ¡Poco stock! Los clientes se irán enfadados.
+            </div>
+        </section>
+        
         <!-- MODAL DE COBRO (Aparece al hacer clic en un cliente en la caja) -->
         <div id="payment-modal" class="modal hidden">
             <div class="modal-content payment-ui">
