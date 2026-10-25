@@ -7,7 +7,7 @@
     --accent-blue: #2196f3;
     --white-box: #ffffff;
     --border-radius: 8px;
-    --aisle-bg: #252528; /* Fondo ligeramente distinto para el pasillo */
+    --aisle-bg: #252528;
 }
 
 * {
@@ -32,7 +32,7 @@ body {
 /* Pantallas */
 .screen {
     width: 100%;
-    max-width: 900px; /* Un poco más ancho para ver bien el pasillo */
+    max-width: 900px;
     padding: 20px;
 }
 
@@ -55,37 +55,37 @@ body {
 .status-open { color: var(--accent-green); }
 .status-closed { color: var(--accent-red); }
 
-/* --- MAPA VISUAL (NUEVA ESTRUCTURA) --- */
+/* --- MAPA VISUAL --- */
 .store-layout {
     display: grid;
-    /* 3 Columnas: Estantes (20%) | Pasillo (50%) | Caja (30%) */
     grid-template-columns: 1fr 2.5fr 1fr; 
     gap: 10px;
-    height: 400px; /* Altura fija para controlar el movimiento vertical si hace falta */
+    height: 400px;
     background: #111;
     padding: 10px;
     border-radius: var(--border-radius);
 }
 
-/* ZONA ESTANTES (Izquierda) */
-.shelves-area {
+.shelves-area, .aisle-area, .checkout-area {
     background: var(--card-bg);
     padding: 10px;
     border-radius: 4px;
     display: flex;
     flex-direction: column;
 }
-.shelves-area h3 {
+
+.shelves-area h3, .aisle-area h3, .checkout-area h3 {
     font-size: 0.8em;
     color: #888;
     margin-bottom: 10px;
     text-align: center;
 }
 
+/* Estantes */
 .shelves-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* 4 columnas internas */
-    grid-template-rows: repeat(6, 1fr);   /* 6 filas internas = 24 slots visibles */
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(6, 1fr);
     gap: 2px;
     flex-grow: 1;
 }
@@ -97,30 +97,24 @@ body {
 }
 
 .slot.filled {
-    background-color: var(--white-box); /* Lobito Básico */
+    background-color: var(--white-box);
     box-shadow: inset 0 0 3px rgba(0,0,0,0.1);
 }
 
-/* ZONA PASILLO (Centro - Donde caminan los clientes) */
-.aisle-area {
-    background: var(--aisle-bg);
-    position: relative; /* CRUCIAL: Para posicionar absolutamente a los clientes */
-    border-radius: 4px;
-    overflow: hidden; /* Oculta clientes que salen por los bordes */
-    border: 1px solid #333;
-    display: flex;
-    flex-direction: column;
-}
-.aisle-area h3 {
+.stock-counter {
+    margin-top: 5px;
     font-size: 0.8em;
-    color: #666;
-    margin: 5px 0;
     text-align: center;
-    z-index: 5;
-    position: relative;
+    color: #aaa;
 }
 
-/* Contenedor visual del pasillo (líneas de suelo opcionales) */
+/* Pasillo */
+.aisle-area {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #333;
+}
+
 .aisle-floor {
     flex-grow: 1;
     background-image: repeating-linear-gradient(
@@ -133,15 +127,15 @@ body {
     position: relative;
 }
 
-/* CLIENTES (BOLITAS) */
+/* Clientes (Bolitas) */
 .customer-blob {
     width: 24px;
     height: 24px;
     border-radius: 50%;
     position: absolute;
-    top: 50%; /* Centrado vertical inicial */
+    top: 50%;
     transform: translateY(-50%);
-    transition: left 0.5s linear, background-color 0.3s; /* Animación suave de movimiento */
+    transition: left 0.5s linear, background-color 0.3s;
     cursor: default;
     box-shadow: 0 2px 5px rgba(0,0,0,0.5);
     z-index: 10;
@@ -153,13 +147,12 @@ body {
     font-weight: bold;
 }
 
-/* Estados visuales de los clientes */
 .customer-blob.entering { background-color: var(--accent-blue); }
-.customer-blob.shopping { background-color: #ff9800; /* Naranja comprando */ }
+.customer-blob.shopping { background-color: #ff9800; }
 .customer-blob.going-to-checkout { background-color: var(--accent-blue); }
 .customer-blob.waiting-in-queue { 
-    background-color: var(--accent-yellow, #ffc107); /* Amarillo esperando pago */
-    cursor: pointer; /* Indicador de interacción */
+    background-color: #ffc107; 
+    cursor: pointer;
     animation: pulse 1.5s infinite;
 }
 .customer-blob.leaving-happy { background-color: var(--accent-green); }
@@ -171,7 +164,6 @@ body {
     100% { transform: translateY(-50%) scale(1); }
 }
 
-/* Etiqueta de nombre flotante */
 .customer-name-tag {
     position: absolute;
     top: -20px;
@@ -186,27 +178,12 @@ body {
     pointer-events: none;
 }
 
-/* ZONA CAJA (Derecha) */
-.checkout-area {
-    background: var(--card-bg);
-    padding: 10px;
-    border-radius: 4px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: space-between;
-}
-.checkout-area h3 {
-    font-size: 0.8em;
-    color: #888;
-    margin-bottom: 10px;
-}
-
+/* Caja */
 .queue-display {
     flex-grow: 1;
     width: 100%;
     display: flex;
-    flex-direction: column-reverse; /* Los últimos en llegar están abajo/adelante visualmente */
+    flex-direction: column-reverse;
     gap: 5px;
     justify-content: flex-start;
     overflow-y: auto;
@@ -216,7 +193,6 @@ body {
     margin-bottom: 10px;
 }
 
-/* Miniaturas en la cola de caja */
 .queue-item {
     background: #333;
     padding: 5px;
@@ -231,7 +207,6 @@ body {
 .queue-item:hover { background: #444; }
 .queue-item .price { color: var(--accent-green); font-weight: bold; }
 
-/* Botones de Control Tienda */
 .shop-controls {
     width: 100%;
     display: flex;
@@ -239,6 +214,7 @@ body {
     gap: 10px;
 }
 
+/* Botones Generales */
 .btn {
     padding: 10px 20px;
     border: none;
@@ -255,141 +231,18 @@ body {
 .btn.danger { background: var(--accent-red); color: white; }
 .btn.ghost { background: transparent; border: 1px solid #555; color: #aaa; }
 .btn.large { padding: 15px; font-size: 1.1em; }
+.btn.small { padding: 8px; font-size: 0.85em; }
 
-/* Panel Inferior (Stock/Rapidez) */
-.bottom-panel {
-    margin-top: 15px;
-    background: var(--card-bg);
-    padding: 15px;
-    border-radius: var(--border-radius);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-/* MODALES */
-.modal {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.85);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-}
-.modal-content {
-    background: var(--card-bg);
-    padding: 30px;
-    border-radius: var(--border-radius);
-    max-width: 400px;
-    width: 90%;
-    text-align: center;
-    border: 1px solid #444;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-}
-.modal-content h2 { margin-bottom: 15px; color: var(--white-box); }
-.modal-content p { margin-bottom: 20px; line-height: 1.5; white-space: pre-line; }
-
-/* Modal Específico de Pago (Recibo) */
-.payment-modal-content {
-    text-align: left;
-    padding: 20px;
-}
-.receipt-paper {
-    background: #fff;
-    color: #000;
-    padding: 15px;
-    font-family: 'Courier New', Courier, monospace;
-    border: 1px dashed #ccc;
-    margin-bottom: 15px;
-    box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
-    position: relative;
-}
-.receipt-header {
-    text-align: center;
-    border-bottom: 1px solid #000;
-    padding-bottom: 5px;
-    margin-bottom: 10px;
-    font-weight: bold;
-}
-.receipt-items {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 10px 0;
-}
-.receipt-items li {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.9em;
-    margin-bottom: 3px;
-}
-.receipt-total {
-    border-top: 2px solid #000;
-    padding-top: 5px;
-    font-weight: bold;
-    text-align: right;
-    font-size: 1.1em;
-}
-
-.input-group {
-    margin-bottom: 15px;
-}
-.input-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-size: 0.9em;
-    color: #aaa;
-}
-.input-group input {
-    width: 100%;
-    padding: 10px;
-    background: #222;
-    border: 1px solid #555;
-    color: white;
-    font-size: 1.2em;
-    text-align: right;
-    border-radius: 4px;
-}
-.input-group input:focus {
-    outline: none;
-    border-color: var(--accent-blue);
-}
-
-.error-msg {
-    color: var(--accent-red);
-    font-size: 0.85em;
-    margin-top: 5px;
-    min-height: 1.2em; /* Reserva espacio */
-}
-
-.button-row {
-    display: flex;
-    gap: 10px;
-}
-.button-row .btn { flex: 1; }
-
-/* Reporte Fin de Día */
-.report-text {
-    text-align: left;
-    font-family: monospace;
-    background: #111;
-    padding: 15px;
-    border-radius: 4px;
-    color: #ddd;
-    margin-bottom: 20px;
-    white-space: pre-wrap;
-}
-
-/* --- PANEL DE REPOSICIÓN --- */
+/* Panel Reposición */
 .restock-panel {
     background: var(--card-bg);
     padding: 15px;
     border-radius: var(--border-radius);
-    margin-top: 15px; /* Separación del mapa */
+    margin-top: 15px;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    border-left: 4px solid var(--accent-blue); /* Acento azul para identificar gestión */
+    border-left: 4px solid var(--accent-blue);
 }
 
 .restock-panel h3 {
@@ -418,12 +271,6 @@ body {
     gap: 10px;
 }
 
-.restock-controls .btn {
-    flex: 1;
-    font-size: 0.85em;
-    padding: 8px;
-}
-
 .stock-warning {
     color: var(--accent-red);
     font-size: 0.8em;
@@ -434,4 +281,115 @@ body {
 @keyframes blink {
     from { opacity: 1; }
     to { opacity: 0.5; }
+}
+
+/* Modales */
+.modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+.modal-content {
+    background: var(--card-bg);
+    padding: 30px;
+    border-radius: var(--border-radius);
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+    border: 1px solid #444;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+}
+.modal-content h2 { margin-bottom: 15px; color: var(--white-box); }
+.modal-content p { margin-bottom: 20px; line-height: 1.5; white-space: pre-line; }
+
+/* Pago Rápido */
+.quick-pay-ui { text-align: center; }
+.big-ticket {
+    background: #fff;
+    color: #000;
+    padding: 20px;
+    margin: 15px 0;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+}
+.huge-price {
+    font-size: 2.5em;
+    font-weight: bold;
+    color: #2c2c30;
+    margin-top: 10px;
+}
+.pulse-btn {
+    animation: button-pulse 2s infinite;
+    font-size: 1.2em !important;
+    margin-top: 10px;
+}
+@keyframes button-pulse {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+    70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+}
+
+/* Recibo Manual */
+.payment-ui { text-align: left; }
+.receipt-paper {
+    background: #fff;
+    color: #000;
+    padding: 15px;
+    font-family: 'Courier New', Courier, monospace;
+    border: 1px dashed #ccc;
+    margin-bottom: 15px;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+}
+.receipt-header {
+    text-align: center;
+    border-bottom: 1px solid #000;
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+.receipt-items {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 10px 0;
+}
+.receipt-items li {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9em;
+    margin-bottom: 3px;
+}
+.total-line {
+    border-top: 2px solid #000;
+    padding-top: 5px;
+    font-weight: bold;
+    text-align: right;
+    font-size: 1.1em;
+}
+.input-section input {
+    width: 100%;
+    padding: 10px;
+    background: #222;
+    border: 1px solid #555;
+    color: white;
+    font-size: 1.2em;
+    text-align: right;
+    border-radius: 4px;
+    margin: 5px 0 15px 0;
+}
+.buttons-row { display: flex; gap: 10px; }
+.error-text { color: var(--accent-red); font-size: 0.85em; margin-top: 5px; min-height: 1.2em; }
+
+.report-text {
+    text-align: left;
+    font-family: monospace;
+    background: #111;
+    padding: 15px;
+    border-radius: 4px;
+    color: #ddd;
+    margin-bottom: 20px;
+    white-space: pre-wrap;
 }
