@@ -191,6 +191,17 @@ function updateUI() {
     // Mapas
     updateStoreMapView();
     renderCustomers(); // Importante: refrescar clientes cada vez que se actualice la UI principal
+
+    // NUEVO: Mostrar/Ocultar alerta de bajo stock
+    const lowStockAlert = document.getElementById('low-stock-alert');
+    if (lowStockAlert) {
+        // Consideramos "bajo" si quedan menos de 12 unidades (1 lote)
+        if (gameState.inventory.white_wolfie < 12) {
+            lowStockAlert.classList.remove('hidden');
+        } else {
+            lowStockAlert.classList.add('hidden');
+        }
+    }
 }
 
 function checkQuotaStatus() {
