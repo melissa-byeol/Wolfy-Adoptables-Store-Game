@@ -1,19 +1,19 @@
-// Estructura predeterminada del juego
 const DEFAULT_STATE = {
     day: 1,
-    budget: 0, // Se llenará al iniciar partida
+    budget: 10.00,
     inventory: {
-        white_wolfie: 24 // 2 lotes gratis iniciales
+        white_wolfie: 24 // Stock inicial
     },
+    shopStatus: 'closed', // 'open' o 'closed'
+    customers: [], // Array de objetos cliente activos en la tienda
     stats: {
         total_sales_lifetime: 0,
         days_survived: 0
     },
     daily_tracker: {
-        start_budget: 0, // Presupuesto al inicio del día actual
-        earned_today: 0  // Cuánto has ganado neto hoy
+        start_budget: 0,
+        earned_today: 0
     }
 };
 
-// Variable global mutable
 let gameState = null;
