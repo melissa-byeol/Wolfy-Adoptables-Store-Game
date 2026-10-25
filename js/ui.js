@@ -194,6 +194,20 @@ function showQuickPayModal(customer) {
     modal.classList.remove('hidden');
 }
 
+function showDangerousPayModal(customer) {
+    // Primero mostrar instrucción de seguridad
+    gameState.pendingCustomerForPayment = customer; // Guardar referencia temporal
+    
+    const overlay = document.getElementById('interaction-overlay');
+    overlay.classList.remove('hidden');
+    
+    const instruction = document.getElementById('interaction-instruction');
+    instruction.innerHTML = `⚠️ ATENCIÓN: Este cliente trae un <strong>Lobito Gordinflón</strong>.<br>Para evitar mordiscos:<br>1. Presiona <kbd>G</kbd> para agarrarlo.<br>2. Mantén <kbd>P</kbd> por 4s para calmarlo.`;
+    
+    // El usuario debe completar la acción para continuar
+    // Una vez completada (en logic.js), llamaremos a processNormalPayment
+}
+
 function hideQuickPayModal() {
     document.getElementById('quick-pay-modal').classList.add('hidden');
 }
