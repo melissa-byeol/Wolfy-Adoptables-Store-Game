@@ -1,42 +1,43 @@
-// js/main.js - VERSIÓN V3 (SIMULACIÓN ACTIVA)
+// js/main.js - VERSIÓN V3.1
 
 document.addEventListener('DOMContentLoaded', () => {
     
     // --- REFERENCIAS DOM ---
     
-    // Pantallas
     const startScreen = document.getElementById('start-screen');
     const gameScreen = document.getElementById('game-screen');
     
-    // Menú Principal
     const btnNewGame = document.getElementById('btn-new-game');
     const btnLoadGame = document.getElementById('btn-load-game');
     
-    // Controles de Tienda Principales
-    const btnToggleShop = document.getElementById('btn-toggle-shop'); // Botón Abrir/Cerrar
+    const btnToggleShop = document.getElementById('btn-toggle-shop');
     
-    // Modal de Pago
+    // Modal Pago Rápido
+    const quickPayModal = document.getElementById('quick-pay-modal');
+    const btnQuickConfirm = document.getElementById('btn-quick-confirm');
+    const btnQuickCancel = document.getElementById('btn-quick-cancel');
+    
+    // Modal Pago Manual
     const paymentModal = document.getElementById('payment-modal');
     const btnConfirmPayment = document.getElementById('btn-confirm-payment');
     const btnCancelPayment = document.getElementById('btn-cancel-payment');
     const payInputAmount = document.getElementById('pay-input-amount');
     
-    // Modal Fin de Día
+    // Modal Fin Día
     const dayEndModal = document.getElementById('day-end-modal');
     const btnNextDay = document.getElementById('btn-next-day');
     
-    // Modal Genérico (Bienvenida/Errores)
+    // Modal Genérico
     const genericModal = document.getElementById('message-modal');
     const btnCloseGenericModal = document.getElementById('btn-close-modal');
 
-        // ... otras referencias ...
+    // Reposición
     const btnBuyLote = document.getElementById('btn-buy-lote');
     const btnBuyMax = document.getElementById('btn-buy-max');
-    const lowStockAlert = document.getElementById('low-stock-alert');
-    
+
+
     // --- INICIALIZACIÓN ---
 
-    // Chequear si hay partida guardada
     const savedData = loadGame();
     if (savedData) {
         btnLoadGame.disabled = false;
@@ -49,11 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnNewGame.addEventListener('click', () => {
         startScreen.classList.add('hidden');
         gameScreen.classList.remove('hidden');
-        
-        // Iniciar nueva partida lógica
         initNewGame();
-        
-        // Renderizar estado inicial visualmente
         updateUI(); 
     });
 
@@ -62,34 +59,29 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data) {
             gameState = data;
             
-            // SEGURIDAD: Si la tienda estaba 'open' al guardar, forzamos 'closed'
-            // Esto evita que haya dos loops de setInterval corriendo o clientes fantasma.
             if (gameState.shopStatus === 'open') {
                 gameState.shopStatus = 'closed';
-                gameState.customers = []; // Limpiar clientes residuales
+                gameState.customers = [];
             }
 
             startScreen.classList.add('hidden');
             gameScreen.classList.remove('hidden');
             
-            // Actualizar UI inmediatamente
             updateUI();
             
-            // Resetear texto del botón según estado cargado
             if (gameState.shopStatus === 'closed') {
                 btnToggleShop.textContent = "ABRIR TIENDA";
-                btnToggleShop.className = "btn success large"; // Clase verde
+                btnToggleShop.className = "btn success large"; 
             } else {
                 btnToggleShop.textContent = "CERRAR TIENDA";
-                btnToggleShop.className = "btn danger large"; // Clase roja
+                btnToggleShop.className = "btn danger large"; 
             }
         }
     });
 
 
-       // --- EVENT LISTENERS: CONTROLES DE JUEGO ---
+    // --- EVENT LISTENERS: CONTROLES DE JUEGO ---
 
-    // Abrir / Cerrar Tienda
     if (btnToggleShop) {
         btnToggleShop.addEventListener('click', () => {
             toggleShopState(); 
@@ -102,32 +94,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnToggleShop.className = "btn success large";
             }
         });
-    } else {
-        console.warn("⚠️ Advertencia: No se encontró el botón #btn-toggle-shop en el HTML.");
     }
 
-    // --- EVENT LISTENERS: MODAL DE PAGO ---
 
-    btnConfirmPayment.addEventListener('click', () => {
-        const customerId = parseFloat(paymentModal.dataset.currentCustomerId);
-        const amountStr = payInputAmount.value;
-        
-        confirmPayment(amountStr, customerId);
-    });
-
-    btnCancelPayment.addEventListener('click', () => {
-        hidePaymentModal();
-    });
-
-    // Permitir Enter para confirmar pago
-    payInputAmount.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            btnConfirmPayment.click();
-        }
-    });
-
-
-        // --- EVENT LISTENERS: REPOSICIÓN ---
+    // --- EVENT LISTENERS: REPOSICIÓN ---
     
     if (btnBuyLote) {
         btnBuyLote.addEventListener('click', buySingleLote);
@@ -137,34 +107,56 @@ document.addEventListener('DOMContentLoaded', () => {
         btnBuyMax.addEventListener('click', fillMaxStock);
     }
 
-        // --- EVENT LISTENERS: REPOSICIÓN ---
+
+    // --- EVENT LISTENERS: MODAL PAGO RÁPIDO ---
     
-    if (btnBuyLote) {
-        btnBuyLote.addEventListener('click', buySingleLote);
+    if (btnQuickCancel) {
+        btnQuickCancel.addEventListener('click', hideQuickPayModal);
+    }
+    // El botón confirmar se configura dinámicamente en showQuickPayModal
+
+
+    // --- EVENT LISTENERS: MODAL PAGO MANUAL ---
+
+    if (btnConfirmPayment) {
+        btnConfirmPayment.addEventListener('click', () => {
+            const customerId = parseFloat(paymentModal.dataset.currentCustomerId);
+            const amountStr = payInputAmount.value;
+            confirmPayment(amountStr, customerId);
+        });
     }
 
-    if (btnBuyMax) {
-        btnBuyMax.addEventListener('click', fillMaxStock);
+    if (btnCancelPayment) {
+        btnCancelPayment.addEventListener('click', hidePaymentModal);
     }
+
+    if (payInputAmount) {
+        payInputAmount.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') btnConfirmPayment.click();
+        });
+    }
+
+
     // --- EVENT LISTENERS: FIN DE DÍA ---
 
-    btnNextDay.addEventListener('click', () => {
-        nextDay(); // Llama a la función en logic.js
-        
-        // El modal se cierra dentro de nextDay(), pero aseguramos limpieza visual
-        dayEndModal.classList.add('hidden');
-        
-        // Resetear botón de tienda a "Abrir" ya que iniciamos día nuevo
-        btnToggleShop.textContent = "ABRIR TIENDA";
-        btnToggleShop.className = "btn success large";
-        gameState.shopStatus = 'closed'; // Forzar estado cerrado lógico
-    });
+    if (btnNextDay) {
+        btnNextDay.addEventListener('click', () => {
+            nextDay(); 
+            dayEndModal.classList.add('hidden');
+            
+            btnToggleShop.textContent = "ABRIR TIENDA";
+            btnToggleShop.className = "btn success large";
+            gameState.shopStatus = 'closed'; 
+        });
+    }
 
 
     // --- EVENT LISTENERS: MODAL GENÉRICO ---
 
-    btnCloseGenericModal.addEventListener('click', () => {
-        hideModal(); // Función en ui.js
-    });
+    if (btnCloseGenericModal) {
+        btnCloseGenericModal.addEventListener('click', () => {
+            hideModal(); 
+        });
+    }
 
 });
