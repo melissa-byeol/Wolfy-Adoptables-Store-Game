@@ -329,6 +329,56 @@ function checkQuotaStatus() {
     }
 }
 
+/**
+ * Compra un lote individual de Lobitos Básicos
+ */
+function buySingleLote() {
+    if (gameState.budget >= COST_LOTE_WHITE) {
+        gameState.budget -= COST_LOTE_WHITE;
+        gameState.inventory.white_wolfie += UNITS_PER_LOTE;
+        
+        updateUI(); // Refrescar dinero y estantes visuales
+        showToast(`Comprado 1 lote (+${UNITS_PER_LOTE} uds).`);
+    } else {
+        showErrorToast("Fondos insuficientes.");
+    }
+}
+
+/**
+ * Rellena el inventario hasta la capacidad máxima visual (72)
+ * Calcula cuántos lotes son necesarios y compra todos a la vez si hay fondos.
+ */
+function fillMaxStock() {
+    const currentStock = gameState.inventory.white_wolfie;
+    const maxCapacity = MAX_CAPACITY_VISUAL; // Definido arriba como 72
+    
+    if (currentStock >= maxCapacity) {
+        showToast("El almacén ya está lleno.");
+        return;
+    }
+
+    const neededUnits = maxCapacity - currentStock;
+    const lotsNeeded = Math.ceil(neededUnits / UNITS_PER_LOTE);
+    const totalCost = lotsNeeded * COST_LOTE_WHITE;
+
+    if (gameState.budget >= totalCost) {
+        gameState.budget -= totalCost;
+        gameState.inventory.white_wolfie += (lotsNeeded * UNITS_PER_LOTE);
+        
+        updateUI();
+        showToast(`Almacén repleto. Comprados ${lotsNeeded} lotes por $${totalCost}.`);
+    } else {
+        showErrorToast(`No tienes suficiente dinero. Necesitas $${totalCost}.`);
+    }
+}
+
+// Helper simple para errores visuales si no tienes implementado showToast con estilo rojo
+function showErrorToast(msg) {
+    console.error(msg);
+    // Opcional: Alerta rápida para MVP
+    // alert(msg); 
+}
+
 function gameOver(reason) {
     alert("JUEGO TERMINADO\n" + reason);
     clearSave();
