@@ -46,13 +46,11 @@
             <!-- ZONA DE CAJA (Donde pagan) -->
             <section class="checkout-area">
                 <h3>CAJA REGISTRADORA</h3>
-                <div id="queue-container" class="queue-container">
-                    <!-- Clientes esperando turno -->
-                </div>
-                <button id="btn-open-shop" class="btn success large">ABRIR TIENDA</button>
-                <button id="btn-close-shop" class="btn danger large hidden">CERRAR TIENDA</button>
+                <!-- Contenedor visual de cola (opcional pero recomendado para renderCustomers) -->
+                <div class="queue-display"></div> 
+                <!-- EL BOTÓN QUE FALTA -->
+                <button id="btn-toggle-shop" class="btn success large">ABRIR TIENDA</button>
             </section>
-
         </main>
 
         <!-- MODAL DE COBRO (Aparece al hacer clic en un cliente en la caja) -->
