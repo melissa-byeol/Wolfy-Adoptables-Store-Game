@@ -350,3 +350,125 @@ function showErrorToast(msg) {
     console.error(msg);
     showToast(msg); // Reutilizamos toast para errores simples
 }
+
+// Constantes nuevas
+const COST_LOTE_BROWN = 12.00;
+const PRICE_BROWN_WOLFIE = 2.50;
+const PRESERVATION_COST_BROWN = 2.00;
+const PET_DURATION_REQUIRED = 4; // Segundos necesarios
+
+/**
+ * Función llamada desde main.js cuando se presiona una tecla
+ */
+function handleKeyDown(key) {
+    if (gameState.shopStatus !== 'open') return; // Solo interactuar con tienda abierta
+
+    const k = key.toLowerCase();
+
+    // 1. Intentar Agarrar (Tecla G)
+    if (k === 'g') {
+        // Verificar si hay un cliente esperando con un Gordinflón en su carrito
+        // O si el jugador quiere inspeccionar el estante (opcional, por ahora nos centramos en cobro/peligro)
+        
+        // Para MVP: Simularemos que el peligro ocurre AL MOMENTO DE COBRAR 
+        // si el cliente tiene un Gordinflón y el jugador no hace la secuencia correcta.
+        // Pero mejor: Hagamos que sea una mini-interfaz modal obligatoria antes de cobrar.
+        
+        console.log("Modo Agarre activado.");
+        gameState.interactionMode = 'grabbing';
+        updateInteractionUI();
+    }
+
+    // 2. Intentar Acariciar (Tecla P) - Solo válido si ya agarraste
+    if (k === 'p' && gameState.interactionMode === 'grabbing') {
+        gameState.interactionMode = 'petting';
+        gameState.petTimer = 0; // Resetear timer
+        
+        // Iniciar contador visual
+        startPettingTimer();
+        updateInteractionUI();
+    }
+}
+
+function handleKeyUp(key) {
+    const k = key.toLowerCase();
+    
+    // Si sueltas P antes de completar 4 segundos, fallas
+    if (k === 'p' && gameState.interactionMode === 'petting') {
+        failInteraction("Soltaste demasiado pronto. ¡Mordisco!");
+    }
+    
+    // Si sueltas G mientras acaricias, también falla (perdiste el control)
+    if (k === 'g' && gameState.interactionMode === 'petting') {
+         failInteraction("Perdiste el agarre. ¡Mordisco!");
+    }
+}
+
+let petInterval = null;
+
+function startPettingTimer() {
+    clearInterval(petInterval);
+    petInterval = setInterval(() => {
+        gameState.petTimer += 0.1; // Incremento cada 100ms
+        
+        // Actualizar barra de progreso visualmente
+        const progressBar = document.getElementById('pet-progress-bar');
+        if(progressBar) {
+            const percent = Math.min((gameState.petTimer / PET_DURATION_REQUIRED) * 100, 100);
+            progressBar.style.width = `${percent}%`;
+        }
+
+        // Éxito
+        if (gameState.petTimer >= PET_DURATION_REQUIRED) {
+            succeedInteraction();
+        }
+    }, 100);
+}
+
+function succeedInteraction() {
+    clearInterval(petInterval);
+    gameState.interactionMode = null;
+    gameState.petTimer = 0;
+    
+    showToast("✅ Control exitoso. Puedes proceder con la venta.");
+    updateInteractionUI();
+    
+    // Aquí liberaríamos al cliente para que pague normalmente
+    // Por simplicidad, asumiremos que esto desbloquea el botón de "Confirmar Pago" en el modal
+}
+
+function failInteraction(reason) {
+    clearInterval(petInterval);
+    gameState.interactionMode = null;
+    gameState.petTimer = 0;
+    
+    // Penalización: El cliente se va enfadado sin pagar o paga menos?
+    // Digamos que pierde la confianza: El cliente se va ANGRY.
+    showToast(`❌ ${reason}`);
+    
+    // Buscar al cliente actual (el que estaba en cola) y hacerlo salir
+    // Esto requiere pasar el ID del cliente a esta función, lo cual haremos en el Modal
+    updateInteractionUI();
+}
+
+function updateInteractionUI() {
+    const overlay = document.getElementById('interaction-overlay');
+    if (!overlay) return;
+
+    if (gameState.interactionMode) {
+        overlay.classList.remove('hidden');
+        
+        const instruction = document.getElementById('interaction-instruction');
+        const barContainer = document.getElementById('pet-bar-container');
+        
+        if (gameState.interactionMode === 'grabbing') {
+            instruction.textContent = "PRESIONA [G] PARA AGARRARLO DEL CUELLO";
+            barContainer.classList.add('hidden');
+        } else if (gameState.interactionMode === 'petting') {
+            instruction.textContent = "MAINTÉN [P] POR 4 SEGUNDOS PARA ACARICIARLO";
+            barContainer.classList.remove('hidden');
+        }
+    } else {
+        overlay.classList.add('hidden');
+    }
+}
