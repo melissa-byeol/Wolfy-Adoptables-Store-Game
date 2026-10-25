@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador Wolfies - Prototipo</title>
+    <title>Simulador Wolfies - Prototipo V2</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- Pantalla de Inicio / Carga -->
+    <!-- Pantalla de Inicio -->
     <div id="start-screen" class="screen active">
         <h1>TIENDA DE WOLFIES</h1>
         <p>Bienvenido, nuevo emprendedor.</p>
@@ -28,31 +28,52 @@
                 <span>Presupuesto:</span> <strong id="display-budget">$0.00</strong>
             </div>
             <div class="stat-item quota">
-                <span>Meta Diaria (+$30):</span> <strong id="display-quota-status">Pendiente</strong>
+                <span>Meta Diaria:</span> <strong id="display-quota-status">Pendiente</strong>
             </div>
         </header>
 
-        <!-- Área de Inventario y Acciones -->
-        <main class="shop-area">
+        <!-- Área de Tienda (Mapa Visual) -->
+        <main class="map-container">
             
-            <section class="inventory-card white-wolfie">
-                <h3>Lobito Básico (Blanco)</h3>
-                <div class="stock-info">
-                    <span>Stock Actual:</span> 
-                    <strong id="display-stock-white">0</strong> uds
+            <!-- El Grid Principal: Representa la planta baja -->
+            <div id="store-grid" class="store-grid">
+                
+                <!-- ZONA CAJERO (Columnas 0-2 aprox, ocupadas por este div ancho) -->
+                <div class="zone-cashier">
+                    <h3>CAJERO AUTOMÁTICO</h3>
+                    <div class="cashier-icon">💰</div>
+                    <p>Procesando ventas...</p>
                 </div>
-                <div class="actions">
-                    <button id="btn-buy-lote" class="btn small">Comprar Lote ($5.00)</button>
-                    <button id="btn-sell-unit" class="btn success small">Vender 1 (+$1.00)</button>
-                </div>
-                <p class="warning-text">⚠️ Coste de Preservación: $0.50/ud/día</p>
-            </section>
 
-            <!-- Placeholder para futuros Wolfies -->
-            <section class="inventory-card locked">
-                <h3>Próximamente...</h3>
-                <p>Otros colores requieren más investigación.</p>
-            </section>
+                <!-- ESTANTES (Se generan dinámicamente o se definen aquí) -->
+                <!-- Usamos 3 contenedores grandes que internamente tienen 24 slots -->
+                <div class="shelf-unit" id="shelf-1">
+                    <div class="shelf-label">ESTANTE A</div>
+                    <div class="shelf-slots-container"></div>
+                </div>
+
+                <div class="shelf-unit" id="shelf-2">
+                    <div class="shelf-label">ESTANTE B</div>
+                    <div class="shelf-slots-container"></div>
+                </div>
+
+                <div class="shelf-unit" id="shelf-3">
+                    <div class="shelf-label">ESTANTE C</div>
+                    <div class="shelf-slots-container"></div>
+                </div>
+
+            </div>
+
+            <!-- Panel de Control Inferior -->
+            <div class="control-panel">
+                <div class="panel-row">
+                    <button id="btn-restock-all" class="btn primary">Rellenar Todo ($15)</button>
+                    <button id="btn-sell-fast" class="btn success">Vender 1 Rápido (+$1)</button>
+                </div>
+                <div class="stats-mini">
+                    <span>Total Stock:</span> <strong id="display-total-stock-map">0</strong>/72
+                </div>
+            </div>
 
         </main>
 
@@ -62,7 +83,7 @@
             <button id="btn-save-manual" class="btn ghost small">Guardar Manualmente</button>
         </footer>
 
-        <!-- Modal de Mensajes (Notificaciones) -->
+        <!-- Modal de Mensajes -->
         <div id="message-modal" class="modal hidden">
             <div class="modal-content">
                 <h2 id="modal-title">Mensaje</h2>
