@@ -1,32 +1,19 @@
-// js/ui.js - VERSIÓN V3 (SIMULACIÓN ACTIVA)
+// js/ui.js - VERSIÓN V3.1
 
-/**
- * Inicializa la estructura visual básica (solo una vez al cargar el juego)
- */
 function initStoreGrid() {
-    // En V3, los estantes son estáticos visualmente. 
-    // No generamos slots individuales ni ponemos listeners aquí.
-    // La función updateStoreMapView se encargará de pintarlos.
+    // No hace nada específico en V3, la vista se genera dinámicamente
 }
 
-/**
- * Actualiza la vista de los estantes según el stock actual
- */
 function updateStoreMapView() {
     if (!gameState) return;
 
     const shelvesGrid = document.getElementById('shelves-grid');
     if (!shelvesGrid) return;
 
-    // Limpiamos el grid antes de redibujar (simple para MVP)
     shelvesGrid.innerHTML = '';
 
-    // Mostramos hasta 24 slots visuales (representando capacidad máxima visible)
-    // El stock real puede ser mayor, pero visualmente limitamos a lo que cabe en la rejilla
     const maxVisibleSlots = 24; 
     const currentStock = gameState.inventory.white_wolfie;
-    
-    // Calculamos cuántos slots llenos mostrar
     const filledSlotsCount = Math.min(currentStock, maxVisibleSlots);
 
     for (let i = 0; i < maxVisibleSlots; i++) {
@@ -42,109 +29,83 @@ function updateStoreMapView() {
         shelvesGrid.appendChild(slot);
     }
 
-    // Actualizar contador textual si existe
     const displayTotal = document.getElementById('display-total-stock-map');
     if (displayTotal) {
         displayTotal.textContent = `${currentStock}`;
     }
 }
 
-/**
- * RENDERIZA LOS CLIENTES EN EL PASILLO Y LA CAJA
- * Esta es la función más importante de la V3
- */
 function renderCustomers() {
     if (!gameState) return;
 
-    const aisleContainer = document.querySelector('.aisle-floor') || document.querySelector('.aisle-area');
+    const aisleContainer = document.querySelector('.aisle-floor');
     const queueContainer = document.querySelector('.queue-display');
     
     if (!aisleContainer || !queueContainer) return;
 
-    // Limpiar contenedores
     aisleContainer.innerHTML = '';
     queueContainer.innerHTML = '';
 
     gameState.customers.forEach(cust => {
-        // 1. Crear el elemento visual (la bolita)
         const blob = document.createElement('div');
         blob.classList.add('customer-blob');
         blob.dataset.id = cust.id;
         
-        // Añadir etiqueta de nombre flotante
-                // Añadir etiqueta de nombre flotante
         const nameTag = document.createElement('span');
         nameTag.classList.add('customer-name-tag');
         
-        // MOSTRAR CANTIDAD DESEADA SI ESTÁ COMPRANDO O ESPERANDO
         let label = cust.name.split(' ')[0];
         if (cust.state === 'shopping' || cust.state === 'waiting_in_queue') {
-             label += ` x${cust.desiredQty}`; // Ejemplo: "Sofia x3"
+             label += ` x${cust.desiredQty}`;
         }
         
         nameTag.textContent = label;
         blob.appendChild(nameTag);
-        
-        // 2. Determinar posición y clase según el ESTADO
+
         let leftPercent = 0;
-        let topOffset = 50; // Centrado vertical por defecto
+        let topOffset = 50;
 
         switch (cust.state) {
             case 'entering':
                 blob.classList.add('entering');
-                // Moverse de izquierda (0%) hacia centro-izquierda (ej. 30%)
                 leftPercent = cust.progress * 0.3; 
                 break;
 
             case 'shopping':
                 blob.classList.add('shopping');
-                // Están parados frente a los estantes (zona izquierda-centro)
-                leftPercent = 30 + (Math.random() * 10); // Pequeña variación aleatoria para que no se superpongan exactamente
-                topOffset = 30 + (Math.random() * 40); // Variación vertical
+                leftPercent = 30 + (Math.random() * 10); 
+                topOffset = 30 + (Math.random() * 40); 
                 break;
 
             case 'going_to_checkout':
                 blob.classList.add('going-to-checkout');
-                // Moverse desde zona estantes (30%) hacia zona caja (80%)
                 leftPercent = 30 + (cust.progress * 0.5);
                 break;
 
             case 'waiting_in_queue':
                 blob.classList.add('waiting-in-queue');
-                // Estos NO van en el pasillo, van en la cola de la derecha
-                // Pero como queremos verlos caminar hasta allí, los mantenemos en el pasillo 
-                // al final de su recorrido o los movemos a la columna de la derecha.
-                // Para simplificar: Si están esperando, los ponemos en la zona de la derecha del pasillo
                 leftPercent = 80 + (Math.random() * 5); 
                 
-                // AÑADIR EVENT LISTENER PARA COBRAR
                 blob.style.cursor = 'pointer';
                 blob.onclick = () => attemptCheckout(cust.id);
                 break;
 
             case 'leaving_happy':
                 blob.classList.add('leaving-happy');
-                // Retroceder desde la caja (80%) hacia la salida (100% o fuera)
-                // Dependiendo de cómo implementes la salida. Asumiremos que salen por la derecha.
                 leftPercent = 80 + ((100 - cust.progress) * 0.2); 
                 break;
 
             case 'leaving_angry':
                 blob.classList.add('leaving-angry');
-                // Salen rápido o vuelven por donde entraron? 
-                // Hagámoslos salir por la derecha también para consistencia visual simple
                 leftPercent = 80 + ((100 - cust.progress) * 0.2);
                 break;
         }
 
-        // Aplicar estilos calculados
         blob.style.left = `${leftPercent}%`;
         blob.style.top = `${topOffset}%`;
 
-        // Agregar al DOM
         aisleContainer.appendChild(blob);
 
-        // 3. Opcional: Mostrar lista resumida en la zona de Caja (derecha)
         if (cust.state === 'waiting_in_queue') {
             const listItem = document.createElement('div');
             listItem.classList.add('queue-item');
@@ -156,24 +117,19 @@ function renderCustomers() {
                 <span>${cust.name.split(' ')[0]}</span>
                 <span class="price">$${totalPrice.toFixed(2)} (${totalItems})</span>
             `;
-            listItem.onclick = () => attemptCheckout(cust.id); // Doble acceso: clic en bolita o en lista
+            listItem.onclick = () => attemptCheckout(cust.id); 
             
             queueContainer.appendChild(listItem);
         }
     });
 }
 
-/**
- * Funciones Auxiliares de UI General
- */
 function updateUI() {
     if (!gameState) return;
 
-    // Header Stats
     document.getElementById('display-day').textContent = gameState.day;
     document.getElementById('display-budget').textContent = `$${gameState.budget.toFixed(2)}`;
     
-    // Shop Status
     const statusEl = document.getElementById('display-shop-status');
     if (statusEl) {
         if (gameState.shopStatus === 'open') {
@@ -185,17 +141,13 @@ function updateUI() {
         }
     }
 
-    // Cuota
     checkQuotaStatus();
-
-    // Mapas
     updateStoreMapView();
-    renderCustomers(); // Importante: refrescar clientes cada vez que se actualice la UI principal
+    renderCustomers();
 
-    // NUEVO: Mostrar/Ocultar alerta de bajo stock
+    // Alerta bajo stock
     const lowStockAlert = document.getElementById('low-stock-alert');
     if (lowStockAlert) {
-        // Consideramos "bajo" si quedan menos de 12 unidades (1 lote)
         if (gameState.inventory.white_wolfie < 12) {
             lowStockAlert.classList.remove('hidden');
         } else {
@@ -217,40 +169,70 @@ function checkQuotaStatus() {
     }
 }
 
-/**
- * MODALES DE PAGO
- */
-function showPaymentModal(customer) {
-    const modal = document.getElementById('payment-modal');
+// --- MODALES DE PAGO ---
+
+function showQuickPayModal(customer) {
+    const modal = document.getElementById('quick-pay-modal');
     if (!modal) return;
 
-    const nameSpan = document.getElementById('pay-client-name');
+    const nameSpan = modal.querySelector('#qp-client-name');
+    const totalSpan = modal.querySelector('#qp-total-amount');
+    const qtySpan = modal.querySelector('#qp-quantity');
+    const confirmBtn = modal.querySelector('#btn-quick-confirm');
+
+    const total = customer.cart.reduce((sum, item) => sum + item.price, 0);
+    const qty = customer.cart.length;
+
+    nameSpan.textContent = customer.name;
+    totalSpan.textContent = `$${total.toFixed(2)}`;
+    qtySpan.textContent = `${qty} x Lobito Básico`;
+
+    modal.dataset.currentCustomerId = customer.id;
+
+    confirmBtn.onclick = () => processQuickPayment(customer.id, total);
+
+    modal.classList.remove('hidden');
+}
+
+function hideQuickPayModal() {
+    document.getElementById('quick-pay-modal').classList.add('hidden');
+}
+
+function showManualCalcModal(customer) {
+    const modal = document.getElementById('payment-modal'); 
+    if(!modal) return;
+
+    const titleEl = modal.querySelector('.modal-content h2');
+    if(titleEl) titleEl.innerHTML = `⚠️ CALCULAR TOTAL<br><span style="font-size:0.8em; color:#aaa;">${customer.name}</span>`;
+
     const listUl = document.getElementById('client-cart-list');
     const totalStrong = document.getElementById('pay-total-amount');
     const input = document.getElementById('pay-input-amount');
     const errorMsg = document.getElementById('pay-error-msg');
 
-    // Llenar datos
-    nameSpan.textContent = customer.name;
     listUl.innerHTML = '';
-    
     let total = 0;
+    
+    const groupedItems = {};
     customer.cart.forEach(item => {
-        const li = document.createElement('li');
-        li.innerHTML = `<span>Lobito Básico x1</span> <span>$${item.price.toFixed(2)}</span>`;
-        listUl.appendChild(li);
-        total += item.price;
+        if(!groupedItems[item.type]) groupedItems[item.type] = { count: 0, price: item.price };
+        groupedItems[item.type].count++;
     });
+
+    for(const [type, data] of Object.entries(groupedItems)) {
+        const li = document.createElement('li');
+        const typeName = type === 'white' ? 'Lobito Básico' : `Lobito ${type}`;
+        li.innerHTML = `<span>${typeName} x${data.count}</span> <span>$${(data.count * data.price).toFixed(2)}</span>`;
+        listUl.appendChild(li);
+        total += data.count * data.price;
+    }
 
     totalStrong.textContent = `$${total.toFixed(2)}`;
     input.value = '';
     input.focus();
     errorMsg.textContent = '';
-    errorMsg.classList.add('hidden');
     
-    // Guardar ID para confirmación
     modal.dataset.currentCustomerId = customer.id;
-    
     modal.classList.remove('hidden');
 }
 
@@ -267,12 +249,8 @@ function showError(msg) {
     }
 }
 
-/**
- * TOASTS / NOTIFICACIONES SIMPLES
- */
 function showToast(message) {
     console.log(message);
-    // Implementación futura: Div flotante animado
 }
 
 function showModal(title, body) {
