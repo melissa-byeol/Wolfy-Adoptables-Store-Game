@@ -4,32 +4,25 @@ const UNITS_PER_LOTE = 12;
 const PROFIT_PER_UNIT_WHITE = 1.00;
 const PRESERVATION_COST_PER_UNIT = 0.50;
 const DAILY_QUOTA_GOAL = 30.00;
+const MAX_CAPACITY_VISUAL = 72;
 
 function initNewGame() {
     gameState = JSON.parse(JSON.stringify(DEFAULT_STATE));
-    
-    // Regla especial: Empezamos con 2 lotes gratis (24 uds) y $0 cash? 
-    // O mejor: Nos dan el stock Y algo de dinero para operar?
-    // Según tu regla: "quizas podría dar 2 lotes... en vez de $100".
-    // Asumiremos que empezamos con $0 cash pero con stock, o quizás un pequeño colchón.
-    // Para hacerlo jugable, demos $10 de efectivo inicial además del stock, 
-    // o simplemente permitamos vender lo que tenemos.
-    
-    gameState.budget = 10.00; // Pequeño fondo operativo inicial
+    gameState.budget = 10.00; // Fondo inicial pequeño
     gameState.daily_tracker.start_budget = gameState.budget;
     gameState.daily_tracker.earned_today = 0;
     
+    // IMPORTANTE: Construir la rejilla antes de actualizar UI
+    initStoreGrid(); 
+    
     updateUI();
-    showModal("Bienvenido", "Has recibido 2 lotes de Lobitos Básicos (24 unidades).\nTu meta es superar tus gastos diarios.");
+    showModal("Bienvenido", "Tu tienda está lista.\nHaz clic en las cajas blancas para venderlas.\nCapacidad máxima: 72 unidades.");
 }
 
 function buyLoteWhite() {
     if (gameState.budget >= COST_LOTE_WHITE) {
         gameState.budget -= COST_LOTE_WHITE;
         gameState.inventory.white_wolfie += UNITS_PER_LOTE;
-        
-        // Nota: Comprar no cuenta como "ganancia" directa, es inversión.
-        // Pero reduce el presupuesto disponible.
         updateUI();
         checkQuotaStatus();
     } else {
@@ -41,8 +34,6 @@ function sellUnitWhite() {
     if (gameState.inventory.white_wolfie > 0) {
         gameState.inventory.white_wolfie -= 1;
         gameState.budget += PROFIT_PER_UNIT_WHITE;
-        
-        // Registrar ganancia para la cuota diaria
         gameState.daily_tracker.earned_today += PROFIT_PER_UNIT_WHITE;
         gameState.stats.total_sales_lifetime++;
         
@@ -53,41 +44,58 @@ function sellUnitWhite() {
     }
 }
 
+function restockAllShelves() {
+    const currentStock = gameState.inventory.white_wolfie;
+    
+    if (currentStock >= MAX_CAPACITY_VISUAL) {
+        showToast("Los estantes ya están llenos.");
+        return;
+    }
+
+    const neededUnits = MAX_CAPACITY_VISUAL - currentStock;
+    const lotsToBuy = Math.ceil(neededUnits / UNITS_PER_LOTE);
+    const cost = lotsToBuy * COST_LOTE_WHITE;
+
+    if (gameState.budget >= cost) {
+        gameState.budget -= cost;
+        gameState.inventory.white_wolfie += (lotsToBuy * UNITS_PER_LOTE);
+        
+        // Cap opcional: Si compraste de más, lo guardamos en "almacén invisible"?
+        // Por ahora, permitimos que el número suba, pero visualmente solo se ven 72.
+        // Para mantener la coherencia simple, no limitamos el número interno, 
+        // pero el usuario sabe que visualmente hay tope.
+        
+        updateUI();
+        showToast(`Comprados ${lotsToBuy} lotes por $${cost}.`);
+    } else {
+        showToast("Fondos insuficientes para rellenar todo.");
+    }
+}
+
 function endDay() {
-    // 1. Calcular costo de preservación sobre EL STOCK RESTANTE
     const unitsLeft = gameState.inventory.white_wolfie;
     const preservationCost = unitsLeft * PRESERVATION_COST_PER_UNIT;
     
-    // 2. Aplicar costo
     gameState.budget -= preservationCost;
     
-    // 3. Verificar Bancarrota
     if (gameState.budget < 0) {
         gameOver(`Bancarrota.\nPierdes $${Math.abs(gameState.budget).toFixed(2)} adicionales.`);
         return;
     }
 
-    // 4. Verificar Cumplimiento de Cuota (Opcional: penalización si no cumples?)
-    // Tu regla decía: "tienes que vender hasta haber ganado esa cantidad por sobre el presupuesto".
-    // Implementaremos un sistema simple: Si earned_today < QUOTA, avisamos, pero no cerramos tienda aún (para MVP).
     let quotaMessage = "";
     if (gameState.daily_tracker.earned_today < DAILY_QUOTA_GOAL) {
-        quotaMessage = `\n⚠️ Advertencia: No cumpliste la meta de ventas de hoy (${DAILY_QUOTA_GOAL}).`;
+        quotaMessage = `\n⚠️ Advertencia: No cumpliste la meta de ventas (${DAILY_QUOTA_GOAL}).`;
     } else {
         quotaMessage = "\n✅ Meta diaria superada.";
     }
 
-    // 5. Avanzar día
     gameState.day++;
     gameState.stats.days_survived++;
-    
-    // Resetear tracker diario
     gameState.daily_tracker.start_budget = gameState.budget;
     gameState.daily_tracker.earned_today = 0;
 
-    // 6. Guardar automáticamente
     saveGame();
-    
     updateUI();
     showModal(`Fin del Día ${gameState.day - 1}`, `Costo de preservación: -$${preservationCost.toFixed(2)}\nNuevo Balance: $${gameState.budget.toFixed(2)}${quotaMessage}`);
 }
@@ -106,5 +114,5 @@ function checkQuotaStatus() {
 function gameOver(reason) {
     alert("JUEGO TERMINADO\n" + reason);
     clearSave();
-    location.reload(); // Volver al menú principal
+    location.reload();
 }
