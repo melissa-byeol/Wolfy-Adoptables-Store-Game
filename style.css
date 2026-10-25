@@ -379,3 +379,59 @@ body {
     margin-bottom: 20px;
     white-space: pre-wrap;
 }
+
+/* --- PANEL DE REPOSICIÓN --- */
+.restock-panel {
+    background: var(--card-bg);
+    padding: 15px;
+    border-radius: var(--border-radius);
+    margin-top: 15px; /* Separación del mapa */
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-left: 4px solid var(--accent-blue); /* Acento azul para identificar gestión */
+}
+
+.restock-panel h3 {
+    font-size: 1em;
+    color: #ccc;
+    margin-bottom: 5px;
+}
+
+.restock-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9em;
+    color: #aaa;
+}
+
+.price-tag {
+    background: #333;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+.restock-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.restock-controls .btn {
+    flex: 1;
+    font-size: 0.85em;
+    padding: 8px;
+}
+
+.stock-warning {
+    color: var(--accent-red);
+    font-size: 0.8em;
+    text-align: center;
+    animation: blink 1s infinite alternate;
+}
+
+@keyframes blink {
+    from { opacity: 1; }
+    to { opacity: 0.5; }
+}
