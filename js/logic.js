@@ -112,19 +112,41 @@ function gameTick() {
                 }
                 break;
 
-            case 'shopping':
+                        case 'shopping':
                 // Tiempo simulado en estante
                 cust.waitTimer++; 
+                
                 if (cust.waitTimer > 2) { // Tarda 2 ticks (1 seg aprox)
-                    // Intentar tomar producto
-                    if (gameState.inventory.white_wolfie > 0) {
-                        gameState.inventory.white_wolfie--;
-                        cust.cart.push({ type: 'white', price: PRICE_WHITE_WOLFIE });
+                    
+                    // Verificar si hay stock suficiente para lo que quiere
+                    if (gameState.inventory.white_wolfie >= cust.desiredQty) {
+                        
+                        // Éxito: Se lleva TODOS los que quería
+                        for(let i = 0; i < cust.desiredQty; i++) {
+                            gameState.inventory.white_wolfie--;
+                            cust.cart.push({ type: 'white', price: PRICE_WHITE_WOLFIE });
+                        }
+                        
                         cust.state = 'going_to_checkout';
                         cust.progress = 0;
                         anyActionTaken = true;
+                        
+                    } else if (gameState.inventory.white_wolfie > 0) {
+                        
+                        // Parcial: No tiene todos, pero toma lo que queda
+                        // Esto crea drama: ¿Se irá enfadado o aceptará lo poco?
+                        // Para MVP simple: Toma lo que hay y se va feliz con eso.
+                        const availableStock = gameState.inventory.white_wolfie;
+                        for(let i = 0; i < availableStock; i++) {
+                            gameState.inventory.white_wolfie--;
+                            cust.cart.push({ type: 'white', price: PRICE_WHITE_WOLFIE });
+                        }
+                        cust.state = 'going_to_checkout';
+                        cust.progress = 0;
+                        anyActionTaken = true;
+                        
                     } else {
-                        // Sin stock, se frustra y se va
+                        // Sin stock total: Se va molesto
                         cust.state = 'leaving_angry';
                         cust.progress = 100;
                         anyActionTaken = true;
@@ -176,13 +198,19 @@ function spawnCustomer() {
     const firstName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
     const lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
     
+    // --- NUEVA LÓGICA DE CANTIDAD ALEATORIA ---
+    // Genera un número entero entre 1 y 4 inclusive
+    const desiredQuantity = Math.floor(Math.random() * 4) + 1; 
+    // --------------------------------------------------
+
     const newCustomer = {
         id: Date.now() + Math.random(),
         name: `${firstName} ${lastName}`,
         state: 'entering',
-        progress: 0, // 0-100% posición horizontal
+        progress: 0,
         waitTimer: 0,
-        cart: []
+        cart: [],
+        desiredQty: desiredQuantity // Guardamos cuántos QUIERE llevarse
     };
     
     gameState.customers.push(newCustomer);
