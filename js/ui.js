@@ -72,11 +72,19 @@ function renderCustomers() {
         blob.dataset.id = cust.id;
         
         // Añadir etiqueta de nombre flotante
+                // Añadir etiqueta de nombre flotante
         const nameTag = document.createElement('span');
         nameTag.classList.add('customer-name-tag');
-        nameTag.textContent = cust.name.split(' ')[0]; // Solo el primer nombre
+        
+        // MOSTRAR CANTIDAD DESEADA SI ESTÁ COMPRANDO O ESPERANDO
+        let label = cust.name.split(' ')[0];
+        if (cust.state === 'shopping' || cust.state === 'waiting_in_queue') {
+             label += ` x${cust.desiredQty}`; // Ejemplo: "Sofia x3"
+        }
+        
+        nameTag.textContent = label;
         blob.appendChild(nameTag);
-
+        
         // 2. Determinar posición y clase según el ESTADO
         let leftPercent = 0;
         let topOffset = 50; // Centrado vertical por defecto
