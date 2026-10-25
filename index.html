@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador Wolfies - Prototipo V2</title>
+    <title>Simulador Wolfies - V3 Gestión Activa</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
     <!-- Pantalla de Inicio -->
     <div id="start-screen" class="screen active">
         <h1>TIENDA DE WOLFIES</h1>
-        <p>Bienvenido, nuevo emprendedor.</p>
+        <p>Gestiona tu inventario y atiende a tus clientes.</p>
         <button id="btn-new-game" class="btn primary">Nueva Partida</button>
         <button id="btn-load-game" class="btn secondary" disabled>Cargar Partida</button>
     </div>
@@ -19,82 +19,78 @@
     <!-- Pantalla Principal del Juego -->
     <div id="game-screen" class="screen hidden">
         
-        <!-- Header con Datos Críticos -->
         <header class="stats-bar">
-            <div class="stat-item">
-                <span>Día:</span> <strong id="display-day">1</strong>
-            </div>
-            <div class="stat-item money">
-                <span>Presupuesto:</span> <strong id="display-budget">$0.00</strong>
-            </div>
-            <div class="stat-item quota">
-                <span>Meta Diaria:</span> <strong id="display-quota-status">Pendiente</strong>
-            </div>
+            <div class="stat-item"><span>Día:</span> <strong id="display-day">1</strong></div>
+            <div class="stat-item money"><span>Fondos:</span> <strong id="display-budget">$0.00</strong></div>
+            <div class="stat-item status"><span>Tienda:</span> <strong id="display-shop-status">CERRADA</strong></div>
         </header>
 
-        <!-- Área de Tienda (Mapa Visual) -->
-        <main class="map-container">
+        <main class="store-layout">
             
-            <!-- El Grid Principal: Representa la planta baja -->
-            <div id="store-grid" class="store-grid">
-                
-                <!-- ZONA CAJERO (Columnas 0-2 aprox, ocupadas por este div ancho) -->
-                <div class="zone-cashier">
-                    <h3>CAJERO AUTOMÁTICO</h3>
-                    <div class="cashier-icon">💰</div>
-                    <p>Procesando ventas...</p>
+            <!-- ZONA DE ESTANTES (Inventario Visual) -->
+            <section class="shelves-area">
+                <h3>ESTANTES</h3>
+                <div id="shelves-grid" class="shelves-grid">
+                    <!-- Generado por JS -->
                 </div>
+            </section>
 
-                <!-- ESTANTES (Se generan dinámicamente o se definen aquí) -->
-                <!-- Usamos 3 contenedores grandes que internamente tienen 24 slots -->
-                <div class="shelf-unit" id="shelf-1">
-                    <div class="shelf-label">ESTANTE A</div>
-                    <div class="shelf-slots-container"></div>
+            <!-- ZONA DE PASILLOS (Donde caminan los clientes) -->
+            <section class="aisle-area">
+                <h3>PASILLOS</h3>
+                <div id="aisle-container" class="aisle-container">
+                    <!-- Los clientes (bolitas) aparecerán aquí -->
                 </div>
+            </section>
 
-                <div class="shelf-unit" id="shelf-2">
-                    <div class="shelf-label">ESTANTE B</div>
-                    <div class="shelf-slots-container"></div>
+            <!-- ZONA DE CAJA (Donde pagan) -->
+            <section class="checkout-area">
+                <h3>CAJA REGISTRADORA</h3>
+                <div id="queue-container" class="queue-container">
+                    <!-- Clientes esperando turno -->
                 </div>
-
-                <div class="shelf-unit" id="shelf-3">
-                    <div class="shelf-label">ESTANTE C</div>
-                    <div class="shelf-slots-container"></div>
-                </div>
-
-            </div>
-
-            <!-- Panel de Control Inferior -->
-            <div class="control-panel">
-                <div class="panel-row">
-                    <button id="btn-restock-all" class="btn primary">Rellenar Todo ($15)</button>
-                    <button id="btn-sell-fast" class="btn success">Vender 1 Rápido (+$1)</button>
-                </div>
-                <div class="stats-mini">
-                    <span>Total Stock:</span> <strong id="display-total-stock-map">0</strong>/72
-                </div>
-            </div>
+                <button id="btn-open-shop" class="btn success large">ABRIR TIENDA</button>
+                <button id="btn-close-shop" class="btn danger large hidden">CERRAR TIENDA</button>
+            </section>
 
         </main>
 
-        <!-- Footer con Control de Tiempo -->
-        <footer class="controls-bar">
-            <button id="btn-end-day" class="btn danger large">Terminar Día</button>
-            <button id="btn-save-manual" class="btn ghost small">Guardar Manualmente</button>
-        </footer>
+        <!-- MODAL DE COBRO (Aparece al hacer clic en un cliente en la caja) -->
+        <div id="payment-modal" class="modal hidden">
+            <div class="modal-content payment-ui">
+                <h2>Atendiendo a: <span id="pay-client-name">Cliente</span></h2>
+                
+                <div class="receipt-paper">
+                    <h4>Recibo de Compra</h4>
+                    <ul id="client-cart-list">
+                        <!-- Items del carrito -->
+                    </ul>
+                    <div class="total-line">TOTAL A PAGAR: <strong id="pay-total-amount">$0.00</strong></div>
+                </div>
 
-        <!-- Modal de Mensajes -->
-        <div id="message-modal" class="modal hidden">
+                <div class="input-section">
+                    <label>Ingresar monto recibido:</label>
+                    <input type="number" id="pay-input-amount" step="0.01" placeholder="0.00">
+                    <div class="buttons-row">
+                        <button id="btn-confirm-payment" class="btn primary">CONFIRMAR PAGO</button>
+                        <button id="btn-cancel-payment" class="btn ghost">CANCELAR</button>
+                    </div>
+                    <p id="pay-error-msg" class="error-text hidden"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL FIN DE DÍA -->
+        <div id="day-end-modal" class="modal hidden">
             <div class="modal-content">
-                <h2 id="modal-title">Mensaje</h2>
-                <p id="modal-body">Contenido...</p>
-                <button id="btn-close-modal" class="btn primary">Aceptar</button>
+                <h2>Fin de Jornada</h2>
+                <pre id="day-report-body"></pre>
+                <button id="btn-next-day" class="btn primary">SIGUIENTE DÍA</button>
             </div>
         </div>
 
     </div>
 
-    <!-- Scripts -->
     <script src="js/state.js"></script>
     <script src="js/storage.js"></script>
     <script src="js/logic.js"></script>
