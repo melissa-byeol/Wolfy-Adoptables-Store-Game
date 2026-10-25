@@ -29,7 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const genericModal = document.getElementById('message-modal');
     const btnCloseGenericModal = document.getElementById('btn-close-modal');
 
-
+        // ... otras referencias ...
+    const btnBuyLote = document.getElementById('btn-buy-lote');
+    const btnBuyMax = document.getElementById('btn-buy-max');
+    const lowStockAlert = document.getElementById('low-stock-alert');
+    
     // --- INICIALIZACIÓN ---
 
     // Chequear si hay partida guardada
@@ -123,6 +127,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
+        // --- EVENT LISTENERS: REPOSICIÓN ---
+    
+    if (btnBuyLote) {
+        btnBuyLote.addEventListener('click', buySingleLote);
+    }
+
+    if (btnBuyMax) {
+        btnBuyMax.addEventListener('click', fillMaxStock);
+    }
+
+        // --- EVENT LISTENERS: REPOSICIÓN ---
+    
+    if (btnBuyLote) {
+        btnBuyLote.addEventListener('click', buySingleLote);
+    }
+
+    if (btnBuyMax) {
+        btnBuyMax.addEventListener('click', fillMaxStock);
+    }
     // --- EVENT LISTENERS: FIN DE DÍA ---
 
     btnNextDay.addEventListener('click', () => {
