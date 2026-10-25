@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Wolfies - Prototipo</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Pantalla de Inicio / Carga -->
+    <div id="start-screen" class="screen active">
+        <h1>TIENDA DE WOLFIES</h1>
+        <p>Bienvenido, nuevo emprendedor.</p>
+        <button id="btn-new-game" class="btn primary">Nueva Partida</button>
+        <button id="btn-load-game" class="btn secondary" disabled>Cargar Partida</button>
+    </div>
+
+    <!-- Pantalla Principal del Juego -->
+    <div id="game-screen" class="screen hidden">
+        
+        <!-- Header con Datos Críticos -->
+        <header class="stats-bar">
+            <div class="stat-item">
+                <span>Día:</span> <strong id="display-day">1</strong>
+            </div>
+            <div class="stat-item money">
+                <span>Presupuesto:</span> <strong id="display-budget">$0.00</strong>
+            </div>
+            <div class="stat-item quota">
+                <span>Meta Diaria (+$30):</span> <strong id="display-quota-status">Pendiente</strong>
+            </div>
+        </header>
+
+        <!-- Área de Inventario y Acciones -->
+        <main class="shop-area">
+            
+            <section class="inventory-card white-wolfie">
+                <h3>Lobito Básico (Blanco)</h3>
+                <div class="stock-info">
+                    <span>Stock Actual:</span> 
+                    <strong id="display-stock-white">0</strong> uds
+                </div>
+                <div class="actions">
+                    <button id="btn-buy-lote" class="btn small">Comprar Lote ($5.00)</button>
+                    <button id="btn-sell-unit" class="btn success small">Vender 1 (+$1.00)</button>
+                </div>
+                <p class="warning-text">⚠️ Coste de Preservación: $0.50/ud/día</p>
+            </section>
+
+            <!-- Placeholder para futuros Wolfies -->
+            <section class="inventory-card locked">
+                <h3>Próximamente...</h3>
+                <p>Otros colores requieren más investigación.</p>
+            </section>
+
+        </main>
+
+        <!-- Footer con Control de Tiempo -->
+        <footer class="controls-bar">
+            <button id="btn-end-day" class="btn danger large">Terminar Día</button>
+            <button id="btn-save-manual" class="btn ghost small">Guardar Manualmente</button>
+        </footer>
+
+        <!-- Modal de Mensajes (Notificaciones) -->
+        <div id="message-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2 id="modal-title">Mensaje</h2>
+                <p id="modal-body">Contenido...</p>
+                <button id="btn-close-modal" class="btn primary">Aceptar</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/state.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/logic.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
