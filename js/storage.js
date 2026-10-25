@@ -1,4 +1,4 @@
-const SAVE_KEY = 'wolfies_sim_save_v1';
+const SAVE_KEY = 'wolfies_sim_save_v3';
 
 function saveGame() {
     try {
@@ -19,7 +19,7 @@ function loadGame() {
 
         const parsedData = JSON.parse(dataString);
         
-        // Validación simple de integridad
+        // Validación simple
         if (parsedData.day && typeof parsedData.budget === 'number') {
             return parsedData;
         } else {
