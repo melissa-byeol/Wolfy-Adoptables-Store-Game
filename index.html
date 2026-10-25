@@ -23,6 +23,7 @@
             <div class="stat-item"><span>Día:</span> <strong id="display-day">1</strong></div>
             <div class="stat-item money"><span>Fondos:</span> <strong id="display-budget">$0.00</strong></div>
             <div class="stat-item status"><span>Tienda:</span> <strong id="display-shop-status">CERRADA</strong></div>
+            <div class="stat-item quota"><span>Meta Diaria:</span> <strong id="display-quota-status">$0.00 / $30.00</strong></div>
         </header>
 
         <main class="store-layout">
@@ -33,12 +34,15 @@
                 <div id="shelves-grid" class="shelves-grid">
                     <!-- Generado por JS -->
                 </div>
+                <div class="stock-counter">
+                    Stock Total: <strong id="display-total-stock-map">0</strong>/72
+                </div>
             </section>
-            
+
             <!-- ZONA DE PASILLOS (Donde caminan los clientes) -->
             <section class="aisle-area">
                 <h3>PASILLOS</h3>
-                <div id="aisle-container" class="aisle-container">
+                <div class="aisle-floor" id="aisle-container">
                     <!-- Los clientes (bolitas) aparecerán aquí -->
                 </div>
             </section>
@@ -46,14 +50,20 @@
             <!-- ZONA DE CAJA (Donde pagan) -->
             <section class="checkout-area">
                 <h3>CAJA REGISTRADORA</h3>
-                <!-- Contenedor visual de cola (opcional pero recomendado para renderCustomers) -->
-                <div class="queue-display"></div> 
-                <!-- EL BOTÓN QUE FALTA -->
-                <button id="btn-toggle-shop" class="btn success large">ABRIR TIENDA</button>
+                
+                <div class="queue-display" id="queue-container">
+                    <!-- Lista resumida de clientes esperando -->
+                </div>
+
+                <div class="shop-controls">
+                    <!-- EL BOTÓN ÚNICO QUE CAMBIA ESTADO -->
+                    <button id="btn-toggle-shop" class="btn success large">ABRIR TIENDA</button>
+                </div>
             </section>
+
         </main>
 
-         <!-- ZONA DE REPOSICIÓN / ALMACÉN -->
+        <!-- PANEL DE REPOSICIÓN / ALMACÉN -->
         <section class="restock-panel">
             <h3>📦 ALMACÉN CENTRAL</h3>
             <div class="restock-info">
@@ -70,11 +80,28 @@
                 ⚠️ ¡Poco stock! Los clientes se irán enfadados.
             </div>
         </section>
-        
-        <!-- MODAL DE COBRO (Aparece al hacer clic en un cliente en la caja) -->
+
+        <!-- MODAL DE PAGO RÁPIDO (SOLO TIPO ÚNICO) -->
+        <div id="quick-pay-modal" class="modal hidden">
+            <div class="modal-content quick-pay-ui">
+                <h2>CAJA RÁPIDA</h2>
+                <p>Cliente: <strong id="qp-client-name">...</strong></p>
+                <div class="big-ticket">
+                    <span id="qp-quantity">... uds</span>
+                    <div class="huge-price" id="qp-total-amount">$0.00</div>
+                </div>
+                
+                <button id="btn-quick-confirm" class="btn success large pulse-btn">
+                    COBRAR AHORA 💸
+                </button>
+                <button id="btn-quick-cancel" class="btn ghost small">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- MODAL DE CÁLCULO MANUAL (PEDIDOS MIXTOS FUTUROS) -->
         <div id="payment-modal" class="modal hidden">
             <div class="modal-content payment-ui">
-                <h2>Atendiendo a: <span id="pay-client-name">Cliente</span></h2>
+                <h2>⚠️ CALCULAR TOTAL<br><span style="font-size:0.8em; color:#aaa;" id="pay-client-name">Cliente</span></h2>
                 
                 <div class="receipt-paper">
                     <h4>Recibo de Compra</h4>
@@ -100,14 +127,23 @@
         <div id="day-end-modal" class="modal hidden">
             <div class="modal-content">
                 <h2>Fin de Jornada</h2>
-                <pre id="day-report-body"></pre>
+                <pre id="day-report-body" class="report-text"></pre>
                 <button id="btn-next-day" class="btn primary">SIGUIENTE DÍA</button>
+            </div>
+        </div>
+
+        <!-- MODAL GENÉRICO (BIENVENIDA/ERRORES) -->
+        <div id="message-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2 id="modal-title">Mensaje</h2>
+                <p id="modal-body">Contenido...</p>
+                <button id="btn-close-modal" class="btn primary">Aceptar</button>
             </div>
         </div>
 
     </div>
 
-    <!-- DESPUÉS (Con defer para garantizar orden y espera del DOM) -->
+    <!-- Scripts con defer para asegurar carga correcta -->
     <script src="js/state.js" defer></script>
     <script src="js/storage.js" defer></script>
     <script src="js/logic.js" defer></script>
