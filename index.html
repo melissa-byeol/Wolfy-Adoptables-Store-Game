@@ -91,10 +91,11 @@
 
     </div>
 
-    <script src="js/state.js"></script>
-    <script src="js/storage.js"></script>
-    <script src="js/logic.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/main.js"></script>
+    <!-- DESPUÉS (Con defer para garantizar orden y espera del DOM) -->
+    <script src="js/state.js" defer></script>
+    <script src="js/storage.js" defer></script>
+    <script src="js/logic.js" defer></script>
+    <script src="js/ui.js" defer></script>
+    <script src="js/main.js" defer></script>
 </body>
 </html>
