@@ -143,6 +143,23 @@
 
     </div>
 
+            <!-- OVERLAY DE INTERACCIÓN PELIGROSA -->
+        <div id="interaction-overlay" class="modal hidden">
+            <div class="modal-content danger-ui">
+                <h2 style="color: var(--accent-red)">🐺 PRECAUCIÓN</h2>
+                <p id="interaction-instruction">Instrucciones...</p>
+                
+                <div id="pet-bar-container" class="hidden">
+                    <div class="progress-track">
+                        <div id="pet-progress-bar" class="progress-fill"></div>
+                    </div>
+                    <small>Mantén la calma...</small>
+                </div>
+
+                <!-- No hay botón de cancelar, debes cumplir la acción o perderás al cliente -->
+            </div>
+        </div>
+    
     <!-- Scripts con defer para asegurar carga correcta -->
     <script src="js/state.js" defer></script>
     <script src="js/storage.js" defer></script>
