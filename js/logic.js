@@ -78,96 +78,22 @@ function closeShop() {
 
 // --- LÓGICA DE SIMULACIÓN (EL TICK) ---
 
-function gameTick() {
-    let anyActionTaken = false;
-
-    for (let i = gameState.customers.length - 1; i >= 0; i--) {
-        const cust = gameState.customers[i];
-        
-        switch (cust.state) {
-            case 'entering':
-                cust.progress += 10; 
-                if (cust.progress >= 100) {
-                    cust.state = 'shopping';
-                    cust.progress = 0; 
-                    anyActionTaken = true;
-                }
-                break;
-
-            case 'shopping':
-                cust.waitTimer++; 
-                if (cust.waitTimer > 2) { 
-                    
-                    // Lógica de cantidad aleatoria (1-4)
-                    if (gameState.inventory.white_wolfie >= cust.desiredQty) {
-                        for(let k = 0; k < cust.desiredQty; k++) {
-                            gameState.inventory.white_wolfie--;
-                            cust.cart.push({ type: 'white', price: PRICE_WHITE_WOLFIE });
-                        }
-                        cust.state = 'going_to_checkout';
-                        cust.progress = 0;
-                        anyActionTaken = true;
-                        
-                    } else if (gameState.inventory.white_wolfie > 0) {
-                        // Toma lo que hay disponible
-                        const availableStock = gameState.inventory.white_wolfie;
-                        for(let k = 0; k < availableStock; k++) {
-                            gameState.inventory.white_wolfie--;
-                            cust.cart.push({ type: 'white', price: PRICE_WHITE_WOLFIE });
-                        }
-                        cust.state = 'going_to_checkout';
-                        cust.progress = 0;
-                        anyActionTaken = true;
-                        
-                    } else {
-                        cust.state = 'leaving_angry';
-                        cust.progress = 100;
-                        anyActionTaken = true;
-                    }
-                }
-                break;
-
-            case 'going_to_checkout':
-                cust.progress += 15; 
-                if (cust.progress >= 100) {
-                    cust.state = 'waiting_in_queue';
-                    cust.progress = 100;
-                    anyActionTaken = true;
-                }
-                break;
-
-            case 'leaving_happy':
-            case 'leaving_angry':
-                cust.progress -= 20; 
-                if (cust.progress <= -50) {
-                    gameState.customers.splice(i, 1);
-                    anyActionTaken = true;
-                }
-                break;
-            
-            case 'waiting_in_queue':
-                break;
-        }
-    }
-
-    if (gameState.customers.length < MAX_CUSTOMERS_IN_STORE) {
-        if (Math.random() < SPAWN_RATE_CHANCE) {
-            spawnCustomer();
-            anyActionTaken = true;
-        }
-    }
-
-    if (anyActionTaken) {
-        renderCustomers();
-        updateStoreMapView(); 
-    }
-}
-
+// --- NUEVA FUNCIÓN SPAWN MEJORADA ---
 function spawnCustomer() {
     const firstName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
     const lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
-    const desiredQuantity = Math.floor(Math.random() * 4) + 1; // 1 a 4
     
+    // Decidir qué quiere comprar
+    let desiredType = 'white';
+    let quantity = Math.floor(Math.random() * 4) + 1; // 1 a 4 unidades
+    
+    // Si hay stock de marrones, hay un 30% de probabilidad de querer uno
+    if (gameState.inventory.brown_wolfie > 0 && Math.random() < 0.3) {
+        desiredType = 'brown';
+        // Los gordinflones son caros/peligrosos, la gente compra menos cantidad (1-2)
+        quantity = Math.floor(Math.random() * 2) + 1; 
+    }
+
     const newCustomer = {
         id: Date.now() + Math.random(),
         name: `${firstName} ${lastName}`,
@@ -175,11 +101,67 @@ function spawnCustomer() {
         progress: 0,
         waitTimer: 0,
         cart: [],
-        desiredQty: desiredQuantity 
+        desiredType: desiredType, // Guardamos qué tipo busca
+        desiredQty: quantity      // Cuántos busca
     };
     
     gameState.customers.push(newCustomer);
 }
+
+// --- MODIFICACIÓN DENTRO DE gameTick() ---
+// Busca el case 'shopping' y reemplázalo por este:
+
+            case 'shopping':
+                cust.waitTimer++; 
+                if (cust.waitTimer > 2) { 
+                    
+                    const typeToTake = cust.desiredType;
+                    const qtyWanted = cust.desiredQty;
+                    
+                    // Verificar disponibilidad específica
+                    let availableStock = 0;
+                    if (typeToTake === 'white') availableStock = gameState.inventory.white_wolfie;
+                    if (typeToTake === 'brown') availableStock = gameState.inventory.brown_wolfie;
+
+                    if (availableStock >= qtyWanted) {
+                        // Éxito total: Toma todos los que quería
+                        for(let k = 0; k < qtyWanted; k++) {
+                            if (typeToTake === 'white') {
+                                gameState.inventory.white_wolfie--;
+                                cust.cart.push({ type: 'white', price: PRICE_WHITE_WOLFIE });
+                            } else {
+                                gameState.inventory.brown_wolfie--;
+                                cust.cart.push({ type: 'brown', price: PRICE_BROWN_WOLFIE });
+                            }
+                        }
+                        cust.state = 'going_to_checkout';
+                        cust.progress = 0;
+                        anyActionTaken = true;
+                        
+                    } else if (availableStock > 0) {
+                        // Parcial: Toma lo que hay disponible
+                        for(let k = 0; k < availableStock; k++) {
+                             if (typeToTake === 'white') {
+                                gameState.inventory.white_wolfie--;
+                                cust.cart.push({ type: 'white', price: PRICE_WHITE_WOLFIE });
+                            } else {
+                                gameState.inventory.brown_wolfie--;
+                                cust.cart.push({ type: 'brown', price: PRICE_BROWN_WOLFIE });
+                            }
+                        }
+                        cust.state = 'going_to_checkout';
+                        cust.progress = 0;
+                        anyActionTaken = true;
+                        
+                    } else {
+                        // Sin stock de ese tipo específico: Se va enfadado
+                        cust.state = 'leaving_angry';
+                        cust.progress = 100;
+                        anyActionTaken = true;
+                    }
+                }
+                break;
+
 
 // --- INTERACCIÓN DEL JUGADOR (COBRO) ---
 
@@ -288,10 +270,14 @@ function fillMaxStock() {
 }
 
 function processEndOfDay() {
-    const unitsLeft = gameState.inventory.white_wolfie;
-    const preservationCost = unitsLeft * PRESERVATION_COST_PER_UNIT;
+    const whiteLeft = gameState.inventory.white_wolfie;
+    const brownLeft = gameState.inventory.brown_wolfie;
     
-    gameState.budget -= preservationCost;
+    const preservationWhite = whiteLeft * PRESERVATION_COST_PER_UNIT;
+    const preservationBrown = brownLeft * PRESERVATION_COST_BROWN;
+    const totalPreservation = preservationWhite + preservationBrown;
+    
+    gameState.budget -= totalPreservation;
     
     if (gameState.budget < 0) {
         gameOver(`BANCARROTA.\nPierdes $${Math.abs(gameState.budget).toFixed(2)} adicionales.`);
@@ -300,8 +286,8 @@ function processEndOfDay() {
 
     const reportBody = document.getElementById('day-report-body');
     let msg = `VENTAS BRUTAS HOY: $${gameState.daily_tracker.earned_today.toFixed(2)}\n`;
-    msg += `STOCK RESTANTE: ${unitsLeft} uds\n`;
-    msg += `IMPUESTO PRESERVACIÓN: -$${preservationCost.toFixed(2)}\n`;
+    msg += `STOCK BLANCO RESTANTE: ${whiteLeft} uds (-$${preservationWhite.toFixed(2)})\n`;
+    msg += `STOCK MARRÓN RESTANTE: ${brownLeft} uds (-$${preservationBrown.toFixed(2)})\n`;
     msg += `----------------------------------\n`;
     msg += `BALANCE FINAL: $${gameState.budget.toFixed(2)}\n\n`;
     
