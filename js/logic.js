@@ -2,17 +2,20 @@
 
 // --- CONSTANTES ECONÓMICAS Y DE CONFIGURACIÓN ---
 const COST_LOTE_WHITE = 5.00;
-const UNITS_PER_LOTE = 12;
-const PRICE_WHITE_WOLFIE = 1.00; // Precio unitario de venta
+const UNITS_PER_LOTE_WHITE = 12;
+const PRICE_WHITE_WOLFIE = 1.00; 
+
+const COST_LOTE_BROWN = 12.00;
+const UNITS_PER_LOTE_BROWN = 6; // Los gordinflones son grandes, vienen menos por lote
+const PRICE_BROWN_WOLFIE = 2.50;
+
 const PRESERVATION_COST_PER_UNIT = 0.50;
+const PRESERVATION_COST_BROWN = 2.00; // Más caro de mantener
+
 const DAILY_QUOTA_GOAL = 30.00;
 const MAX_CUSTOMERS_IN_STORE = 8; 
 const SPAWN_RATE_CHANCE = 0.15;   
-const MAX_CAPACITY_VISUAL = 72;
-
-// Listas simplificadas
-const FIRST_NAMES = ["Alejandro", "Sofia", "Mateo", "Valentina", "Diego", "Camila", "Lucas", "Emma"];
-const LAST_NAMES = ["García", "Rodríguez", "Martínez", "López", "Hernández", "Torres", "Flores", "Rivera"];
+const MAX_CAPACITY_VISUAL = 72; // Capacidad total combinada o individual? Usaremos límite global simple para MVP
 
 let gameInterval = null; 
 
@@ -22,6 +25,7 @@ function initNewGame() {
     gameState = JSON.parse(JSON.stringify(DEFAULT_STATE));
     gameState.budget = 10.00; 
     gameState.inventory.white_wolfie = 24;
+    gameState.inventory.brown_wolfie = 0;
     gameState.daily_tracker.start_budget = gameState.budget;
     gameState.daily_tracker.earned_today = 0;
     gameState.customers = [];
@@ -78,12 +82,10 @@ function closeShop() {
 
 // --- LÓGICA DE SIMULACIÓN (EL TICK) ---
 
-// --- NUEVA FUNCIÓN SPAWN MEJORADA ---
 function spawnCustomer() {
     const firstName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
     const lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
     
-    // Decidir qué quiere comprar
     let desiredType = 'white';
     let quantity = Math.floor(Math.random() * 4) + 1; // 1 a 4 unidades
     
@@ -101,15 +103,37 @@ function spawnCustomer() {
         progress: 0,
         waitTimer: 0,
         cart: [],
-        desiredType: desiredType, // Guardamos qué tipo busca
-        desiredQty: quantity      // Cuántos busca
+        desiredType: desiredType,
+        desiredQty: quantity
     };
     
     gameState.customers.push(newCustomer);
 }
 
-// --- MODIFICACIÓN DENTRO DE gameTick() ---
-// Busca el case 'shopping' y reemplázalo por este:
+function gameTick() {
+    if (gameState.shopStatus !== 'open') return;
+
+    let anyActionTaken = false;
+
+    // Spawn aleatorio
+    if (Math.random() < SPAWN_RATE_CHANCE && gameState.customers.length < MAX_CUSTOMERS_IN_STORE) {
+        spawnCustomer();
+        anyActionTaken = true;
+    }
+
+    // Procesar clientes existentes
+    for (let i = gameState.customers.length - 1; i >= 0; i--) {
+        const cust = gameState.customers[i];
+        
+        switch (cust.state) {
+            case 'entering':
+                cust.progress += 5;
+                if (cust.progress >= 100) {
+                    cust.state = 'shopping';
+                    cust.progress = 0;
+                    cust.waitTimer = 0;
+                }
+                break;
 
             case 'shopping':
                 cust.waitTimer++; 
@@ -124,7 +148,7 @@ function spawnCustomer() {
                     if (typeToTake === 'brown') availableStock = gameState.inventory.brown_wolfie;
 
                     if (availableStock >= qtyWanted) {
-                        // Éxito total: Toma todos los que quería
+                        // Éxito total
                         for(let k = 0; k < qtyWanted; k++) {
                             if (typeToTake === 'white') {
                                 gameState.inventory.white_wolfie--;
@@ -139,7 +163,7 @@ function spawnCustomer() {
                         anyActionTaken = true;
                         
                     } else if (availableStock > 0) {
-                        // Parcial: Toma lo que hay disponible
+                        // Parcial
                         for(let k = 0; k < availableStock; k++) {
                              if (typeToTake === 'white') {
                                 gameState.inventory.white_wolfie--;
@@ -154,7 +178,7 @@ function spawnCustomer() {
                         anyActionTaken = true;
                         
                     } else {
-                        // Sin stock de ese tipo específico: Se va enfadado
+                        // Sin stock
                         cust.state = 'leaving_angry';
                         cust.progress = 100;
                         anyActionTaken = true;
@@ -162,6 +186,34 @@ function spawnCustomer() {
                 }
                 break;
 
+            case 'going_to_checkout':
+                cust.progress += 10;
+                if (cust.progress >= 100) {
+                    cust.state = 'waiting_in_queue';
+                    cust.progress = 0;
+                }
+                break;
+
+            case 'waiting_in_queue':
+                // Espera paciencia infinita por ahora, o timeout largo
+                break;
+
+            case 'leaving_happy':
+            case 'leaving_angry':
+                cust.progress += 10;
+                if (cust.progress >= 100) {
+                    gameState.customers.splice(i, 1);
+                    anyActionTaken = true;
+                }
+                break;
+        }
+    }
+
+    if (anyActionTaken || true) { // Siempre renderizar para suavidad
+        renderCustomers();
+        updateStoreMapView();
+    }
+}
 
 // --- INTERACCIÓN DEL JUGADOR (COBRO) ---
 
@@ -177,6 +229,15 @@ function attemptCheckout(customerId) {
     const customer = gameState.customers[customerIndex];
 
     if (customer.state !== 'waiting_in_queue') return;
+
+    // NUEVO: Verificar si tiene un Gordinflón (brown)
+    const hasBrown = customer.cart.some(item => item.type === 'brown');
+    
+    if (hasBrown) {
+        // Activar la interacción peligrosa ANTES de permitir pago
+        showDangerousPayModal(customer);
+        return; // Salir aquí, no abrir modal de pago normal todavía
+    }
 
     const complexity = analyzeCartComplexity(customer);
 
@@ -234,36 +295,73 @@ function confirmPayment(inputAmount, customerId) {
 
 // --- GESTIÓN DE STOCK Y FIN DE DÍA ---
 
-function buySingleLote() {
+function buySingleLoteWhite() {
     if (gameState.budget >= COST_LOTE_WHITE) {
         gameState.budget -= COST_LOTE_WHITE;
-        gameState.inventory.white_wolfie += UNITS_PER_LOTE;
+        gameState.inventory.white_wolfie += UNITS_PER_LOTE_WHITE;
         updateUI(); 
-        showToast(`Comprado 1 lote (+${UNITS_PER_LOTE} uds).`);
+        showToast(`Comprado 1 lote Blanco (+${UNITS_PER_LOTE_WHITE} uds).`);
     } else {
         showErrorToast("Fondos insuficientes.");
     }
 }
 
-function fillMaxStock() {
+function fillMaxStockWhite() {
     const currentStock = gameState.inventory.white_wolfie;
-    const maxCapacity = MAX_CAPACITY_VISUAL; 
+    // Límite arbitrario para blancos, digamos 48
+    const maxCapacity = 48; 
     
     if (currentStock >= maxCapacity) {
-        showToast("El almacén ya está lleno.");
+        showToast("Almacén Blanco lleno.");
         return;
     }
 
     const neededUnits = maxCapacity - currentStock;
-    const lotsNeeded = Math.ceil(neededUnits / UNITS_PER_LOTE);
+    const lotsNeeded = Math.ceil(neededUnits / UNITS_PER_LOTE_WHITE);
     const totalCost = lotsNeeded * COST_LOTE_WHITE;
 
     if (gameState.budget >= totalCost) {
         gameState.budget -= totalCost;
-        gameState.inventory.white_wolfie += (lotsNeeded * UNITS_PER_LOTE);
+        gameState.inventory.white_wolfie += (lotsNeeded * UNITS_PER_LOTE_WHITE);
         
         updateUI();
-        showToast(`Almacén repleto. Comprados ${lotsNeeded} lotes por $${totalCost}.`);
+        showToast(`Almacén Blanco repleto.`);
+    } else {
+        showErrorToast(`No tienes suficiente dinero. Necesitas $${totalCost}.`);
+    }
+}
+
+function buySingleLoteBrown() {
+    if (gameState.budget >= COST_LOTE_BROWN) {
+        gameState.budget -= COST_LOTE_BROWN;
+        gameState.inventory.brown_wolfie += UNITS_PER_LOTE_BROWN;
+        updateUI(); 
+        showToast(`Comprado 1 lote Marrón (+${UNITS_PER_LOTE_BROWN} uds).`);
+    } else {
+        showErrorToast("Fondos insuficientes para Gordinflones.");
+    }
+}
+
+function fillMaxStockBrown() {
+    const currentStock = gameState.inventory.brown_wolfie;
+    // Límite arbitrario para marrones, digamos 24
+    const maxCapacity = 24; 
+    
+    if (currentStock >= maxCapacity) {
+        showToast("Almacén Marrón lleno.");
+        return;
+    }
+
+    const neededUnits = maxCapacity - currentStock;
+    const lotsNeeded = Math.ceil(neededUnits / UNITS_PER_LOTE_BROWN);
+    const totalCost = lotsNeeded * COST_LOTE_BROWN;
+
+    if (gameState.budget >= totalCost) {
+        gameState.budget -= totalCost;
+        gameState.inventory.brown_wolfie += (lotsNeeded * UNITS_PER_LOTE_BROWN);
+        
+        updateUI();
+        showToast(`Almacén Marrón repleto.`);
     } else {
         showErrorToast(`No tienes suficiente dinero. Necesitas $${totalCost}.`);
     }
@@ -334,45 +432,28 @@ function gameOver(reason) {
 
 function showErrorToast(msg) {
     console.error(msg);
-    showToast(msg); // Reutilizamos toast para errores simples
+    showToast(msg);
 }
 
 // Constantes nuevas
-const COST_LOTE_BROWN = 12.00;
-const PRICE_BROWN_WOLFIE = 2.50;
-const PRESERVATION_COST_BROWN = 2.00;
 const PET_DURATION_REQUIRED = 4; // Segundos necesarios
 
 /**
  * Función llamada desde main.js cuando se presiona una tecla
  */
 function handleKeyDown(key) {
-    if (gameState.shopStatus !== 'open') return; // Solo interactuar con tienda abierta
+    if (gameState.shopStatus !== 'open') return; 
 
     const k = key.toLowerCase();
 
     // 1. Intentar Agarrar (Tecla G)
     if (k === 'g') {
-        // Verificar si hay un cliente esperando con un Gordinflón en su carrito
-        // O si el jugador quiere inspeccionar el estante (opcional, por ahora nos centramos en cobro/peligro)
-        
-        // Para MVP: Simularemos que el peligro ocurre AL MOMENTO DE COBRAR 
-        // si el cliente tiene un Gordinflón y el jugador no hace la secuencia correcta.
-        // Pero mejor: Hagamos que sea una mini-interfaz modal obligatoria antes de cobrar.
-        
-        console.log("Modo Agarre activado.");
-        gameState.interactionMode = 'grabbing';
-        updateInteractionUI();
-    }
-
-    // 2. Intentar Acariciar (Tecla P) - Solo válido si ya agarraste
-    if (k === 'p' && gameState.interactionMode === 'grabbing') {
-        gameState.interactionMode = 'petting';
-        gameState.petTimer = 0; // Resetear timer
-        
-        // Iniciar contador visual
-        startPettingTimer();
-        updateInteractionUI();
+        if (gameState.interactionMode === 'grabbing') {
+             gameState.interactionMode = 'petting';
+             gameState.petTimer = 0; 
+             startPettingTimer();
+             updateInteractionUI();
+        }
     }
 }
 
@@ -384,7 +465,7 @@ function handleKeyUp(key) {
         failInteraction("Soltaste demasiado pronto. ¡Mordisco!");
     }
     
-    // Si sueltas G mientras acaricias, también falla (perdiste el control)
+    // Si sueltas G mientras acaricias, también falla
     if (k === 'g' && gameState.interactionMode === 'petting') {
          failInteraction("Perdiste el agarre. ¡Mordisco!");
     }
@@ -395,16 +476,14 @@ let petInterval = null;
 function startPettingTimer() {
     clearInterval(petInterval);
     petInterval = setInterval(() => {
-        gameState.petTimer += 0.1; // Incremento cada 100ms
+        gameState.petTimer += 0.1; 
         
-        // Actualizar barra de progreso visualmente
         const progressBar = document.getElementById('pet-progress-bar');
         if(progressBar) {
             const percent = Math.min((gameState.petTimer / PET_DURATION_REQUIRED) * 100, 100);
             progressBar.style.width = `${percent}%`;
         }
 
-        // Éxito
         if (gameState.petTimer >= PET_DURATION_REQUIRED) {
             succeedInteraction();
         }
@@ -416,11 +495,17 @@ function succeedInteraction() {
     gameState.interactionMode = null;
     gameState.petTimer = 0;
     
-    showToast("✅ Control exitoso. Puedes proceder con la venta.");
+    showToast("✅ Control exitoso. Procediendo a caja.");
     updateInteractionUI();
     
-    // Aquí liberaríamos al cliente para que pague normalmente
-    // Por simplicidad, asumiremos que esto desbloquea el botón de "Confirmar Pago" en el modal
+    const pendingCustomer = gameState.pendingCustomerForPayment;
+    if (pendingCustomer) {
+        const complexity = analyzeCartComplexity(pendingCustomer);
+        if (complexity === 'simple') showQuickPayModal(pendingCustomer);
+        else showManualCalcModal(pendingCustomer);
+        
+        gameState.pendingCustomerForPayment = null; 
+    }
 }
 
 function failInteraction(reason) {
@@ -428,13 +513,20 @@ function failInteraction(reason) {
     gameState.interactionMode = null;
     gameState.petTimer = 0;
     
-    // Penalización: El cliente se va enfadado sin pagar o paga menos?
-    // Digamos que pierde la confianza: El cliente se va ANGRY.
     showToast(`❌ ${reason}`);
     
-    // Buscar al cliente actual (el que estaba en cola) y hacerlo salir
-    // Esto requiere pasar el ID del cliente a esta función, lo cual haremos en el Modal
+    // Penalización: El cliente se va angry
+    if (gameState.pendingCustomerForPayment) {
+        const idx = gameState.customers.findIndex(c => c.id == gameState.pendingCustomerForPayment.id);
+        if (idx !== -1) {
+            gameState.customers[idx].state = 'leaving_angry';
+            gameState.customers[idx].progress = 100;
+        }
+        gameState.pendingCustomerForPayment = null;
+    }
+    
     updateInteractionUI();
+    renderCustomers();
 }
 
 function updateInteractionUI() {
@@ -448,7 +540,7 @@ function updateInteractionUI() {
         const barContainer = document.getElementById('pet-bar-container');
         
         if (gameState.interactionMode === 'grabbing') {
-            instruction.textContent = "PRESIONA [G] PARA AGARRARLO DEL CUELLO";
+            instruction.innerHTML = `⚠️ ATENCIÓN: Este cliente trae un <strong>Lobito Gordinflón</strong>.<br>Para evitar mordiscos:<br>1. Presiona <kbd>G</kbd> para agarrarlo.<br>2. Mantén <kbd>P</kbd> por 4s para calmarlo.`;
             barContainer.classList.add('hidden');
         } else if (gameState.interactionMode === 'petting') {
             instruction.textContent = "MAINTÉN [P] POR 4 SEGUNDOS PARA ACARICIARLO";
