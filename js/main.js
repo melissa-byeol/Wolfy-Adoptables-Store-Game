@@ -1,15 +1,13 @@
-// js/main.js - V4
+// js/main.js - V4 FINAL
 
 document.addEventListener('DOMContentLoaded', () => {
     
-    // Referencias
     const btnNew = document.getElementById('btn-new-game');
     const btnLoad = document.getElementById('btn-load-game');
     const btnToggle = document.getElementById('btn-toggle-shop');
     const btnNext = document.getElementById('btn-next-day');
     const btnCloseGen = document.getElementById('btn-close-modal');
     
-    // Reposición
     const btnBuyW = document.getElementById('btn-buy-lote-white');
     const btnMaxW = document.getElementById('btn-buy-max-white');
     const btnBuyB = document.getElementById('btn-buy-lote-brown');
@@ -17,25 +15,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnBuyWi = document.getElementById('btn-buy-lote-winter');
     const btnMaxWi = document.getElementById('btn-buy-max-winter');
     
-    // Mejoras
     const btnUpg1 = document.getElementById('btn-upg-exp1');
     const btnUpgAc = document.getElementById('btn-upg-ac');
     const btnUpg2 = document.getElementById('btn-upg-exp2');
 
-    // Pago Manual
     const btnConfPay = document.getElementById('btn-confirm-payment');
     const btnCancelPay = document.getElementById('btn-cancel-payment');
     const inpPay = document.getElementById('pay-input-amount');
     const payModal = document.getElementById('payment-modal');
 
-    // Carga Guardada
     const saved = loadGame();
     if(saved) {
         btnLoad.disabled = false;
         btnLoad.textContent = `Continuar (Día ${saved.day})`;
     }
 
-    // Eventos Menú
     btnNew.addEventListener('click', () => {
         document.getElementById('start-screen').classList.add('hidden');
         document.getElementById('game-screen').classList.remove('hidden');
@@ -56,7 +50,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Eventos Juego
     btnToggle.addEventListener('click', () => {
         toggleShopState();
         if(gameState.shopStatus==='open') { btnToggle.textContent="CERRAR TIENDA"; btnToggle.className="btn danger large"; }
@@ -71,7 +64,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnCloseGen.addEventListener('click', () => document.getElementById('message-modal').classList.add('hidden'));
 
-    // Eventos Reposición
     btnBuyW.addEventListener('click', () => buyLote('white'));
     btnMaxW.addEventListener('click', () => fillStock('white'));
     btnBuyB.addEventListener('click', () => buyLote('brown'));
@@ -79,12 +71,10 @@ document.addEventListener('DOMContentLoaded', () => {
     btnBuyWi.addEventListener('click', () => buyLote('winter'));
     btnMaxWi.addEventListener('click', () => fillStock('winter'));
 
-    // Eventos Mejoras
     btnUpg1.addEventListener('click', () => buyUpgrade('exp1'));
     btnUpgAc.addEventListener('click', () => buyUpgrade('ac'));
     btnUpg2.addEventListener('click', () => buyUpgrade('exp2'));
 
-    // Eventos Pago Manual
     btnConfPay.addEventListener('click', () => {
         const cid = parseFloat(payModal.dataset.cid);
         confirmPayment(inpPay.value, cid);
@@ -100,7 +90,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if(gameState && gameState.interactionMode) handleDangerKeyUp(e.key);
     });
     
-    // Helper para pago manual (definido aquí para acceso a variables)
+    // Vigilante de Inactividad
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
+    activityEvents.forEach(eventType => {
+        window.addEventListener(eventType, () => {
+            resetInactivityTimer();
+        }, { passive: true });
+    });
+    
     function confirmPayment(val, cid) {
         const cust = gameState.customers.find(c=>c.id==cid);
         if(!cust) return;
