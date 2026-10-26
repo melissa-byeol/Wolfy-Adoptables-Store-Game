@@ -32,8 +32,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCloseGenericModal = document.getElementById('btn-close-modal');
 
     // Reposición
-    const btnBuyLote = document.getElementById('btn-buy-lote');
-    const btnBuyMax = document.getElementById('btn-buy-max');
+    const btnBuyLoteWhite = document.getElementById('btn-buy-lote-white');
+    const btnBuyMaxWhite = document.getElementById('btn-buy-max-white');
+    
+    // NUEVOS BOTONES BROWN
+    const btnBuyLoteBrown = document.getElementById('btn-buy-lote-brown');
+    const btnBuyMaxBrown = document.getElementById('btn-buy-max-brown');
 
 
     // --- INICIALIZACIÓN ---
@@ -99,12 +103,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- EVENT LISTENERS: REPOSICIÓN ---
     
-    if (btnBuyLote) {
-        btnBuyLote.addEventListener('click', buySingleLote);
+    if (btnBuyLoteWhite) {
+        btnBuyLoteWhite.addEventListener('click', buySingleLoteWhite);
     }
 
-    if (btnBuyMax) {
-        btnBuyMax.addEventListener('click', fillMaxStock);
+    if (btnBuyMaxWhite) {
+        btnBuyMaxWhite.addEventListener('click', fillMaxStockWhite);
+    }
+
+    // NUEVOS LISTENERS BROWN
+    if (btnBuyLoteBrown) {
+        btnBuyLoteBrown.addEventListener('click', buySingleLoteBrown);
+    }
+
+    if (btnBuyMaxBrown) {
+        btnBuyMaxBrown.addEventListener('click', fillMaxStockBrown);
     }
 
 
