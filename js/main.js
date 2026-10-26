@@ -1,4 +1,4 @@
-// js/main.js - VERSIÓN V3.1
+// js/main.js - VERSIÓN V3.1 FIX EVENTS
 
 document.addEventListener('DOMContentLoaded', () => {
     
@@ -34,13 +34,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Reposición
     const btnBuyLoteWhite = document.getElementById('btn-buy-lote-white');
     const btnBuyMaxWhite = document.getElementById('btn-buy-max-white');
-    
-    // NUEVOS BOTONES BROWN
     const btnBuyLoteBrown = document.getElementById('btn-buy-lote-brown');
     const btnBuyMaxBrown = document.getElementById('btn-buy-max-brown');
 
 
-    // --- INICIALIZACIÓN ---
+    // --- INICIALIZACIÓN GUARDADO ---
 
     const savedData = loadGame();
     if (savedData) {
@@ -51,37 +49,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- EVENT LISTENERS: MENÚ PRINCIPAL ---
 
-    btnNewGame.addEventListener('click', () => {
-        startScreen.classList.add('hidden');
-        gameScreen.classList.remove('hidden');
-        initNewGame();
-        updateUI(); 
-    });
-
-    btnLoadGame.addEventListener('click', () => {
-        const data = loadGame();
-        if (data) {
-            gameState = data;
-            
-            if (gameState.shopStatus === 'open') {
-                gameState.shopStatus = 'closed';
-                gameState.customers = [];
-            }
-
+    if(btnNewGame) {
+        btnNewGame.addEventListener('click', () => {
             startScreen.classList.add('hidden');
             gameScreen.classList.remove('hidden');
-            
-            updateUI();
-            
-            if (gameState.shopStatus === 'closed') {
-                btnToggleShop.textContent = "ABRIR TIENDA";
-                btnToggleShop.className = "btn success large"; 
-            } else {
-                btnToggleShop.textContent = "CERRAR TIENDA";
-                btnToggleShop.className = "btn danger large"; 
+            initNewGame();
+            updateUI(); 
+        });
+    }
+
+    if(btnLoadGame) {
+        btnLoadGame.addEventListener('click', () => {
+            const data = loadGame();
+            if (data) {
+                gameState = data;
+                
+                // Seguridad: Si guardaron con tienda abierta, cerrarla lógicamente
+                if (gameState.shopStatus === 'open') {
+                    gameState.shopStatus = 'closed';
+                    gameState.customers = [];
+                }
+
+                startScreen.classList.add('hidden');
+                gameScreen.classList.remove('hidden');
+                
+                updateUI();
+                
+                if (btnToggleShop) {
+                     if (gameState.shopStatus === 'closed') {
+                        btnToggleShop.textContent = "ABRIR TIENDA";
+                        btnToggleShop.className = "btn success large"; 
+                    } else {
+                        btnToggleShop.textContent = "CERRAR TIENDA";
+                        btnToggleShop.className = "btn danger large"; 
+                    }
+                }
             }
-        }
-    });
+        });
+    }
 
 
     // --- EVENT LISTENERS: CONTROLES DE JUEGO ---
@@ -89,36 +94,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnToggleShop) {
         btnToggleShop.addEventListener('click', () => {
             toggleShopState(); 
-            
-            if (gameState.shopStatus === 'open') {
-                btnToggleShop.textContent = "CERRAR TIENDA";
-                btnToggleShop.className = "btn danger large";
-            } else {
-                btnToggleShop.textContent = "ABRIR TIENDA";
-                btnToggleShop.className = "btn success large";
-            }
         });
     }
 
 
     // --- EVENT LISTENERS: REPOSICIÓN ---
     
-    if (btnBuyLoteWhite) {
-        btnBuyLoteWhite.addEventListener('click', buySingleLoteWhite);
-    }
-
-    if (btnBuyMaxWhite) {
-        btnBuyMaxWhite.addEventListener('click', fillMaxStockWhite);
-    }
-
-    // NUEVOS LISTENERS BROWN
-    if (btnBuyLoteBrown) {
-        btnBuyLoteBrown.addEventListener('click', buySingleLoteBrown);
-    }
-
-    if (btnBuyMaxBrown) {
-        btnBuyMaxBrown.addEventListener('click', fillMaxStockBrown);
-    }
+    if (btnBuyLoteWhite) btnBuyLoteWhite.addEventListener('click', buySingleLoteWhite);
+    if (btnBuyMaxWhite) btnBuyMaxWhite.addEventListener('click', fillMaxStockWhite);
+    if (btnBuyLoteBrown) btnBuyLoteBrown.addEventListener('click', buySingleLoteBrown);
+    if (btnBuyMaxBrown) btnBuyMaxBrown.addEventListener('click', fillMaxStockBrown);
 
 
     // --- EVENT LISTENERS: MODAL PAGO RÁPIDO ---
@@ -126,13 +111,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnQuickCancel) {
         btnQuickCancel.addEventListener('click', hideQuickPayModal);
     }
-    // El botón confirmar se configura dinámicamente en showQuickPayModal
+    // Confirmación dinámica en showQuickPayModal
 
 
     // --- EVENT LISTENERS: MODAL PAGO MANUAL ---
 
     if (btnConfirmPayment) {
         btnConfirmPayment.addEventListener('click', () => {
+            if(!paymentModal) return;
             const customerId = parseFloat(paymentModal.dataset.currentCustomerId);
             const amountStr = payInputAmount.value;
             confirmPayment(amountStr, customerId);
@@ -155,11 +141,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnNextDay) {
         btnNextDay.addEventListener('click', () => {
             nextDay(); 
-            dayEndModal.classList.add('hidden');
+            if(dayEndModal) dayEndModal.classList.add('hidden');
             
-            btnToggleShop.textContent = "ABRIR TIENDA";
-            btnToggleShop.className = "btn success large";
-            gameState.shopStatus = 'closed'; 
+            if(btnToggleShop) {
+                btnToggleShop.textContent = "ABRIR TIENDA";
+                btnToggleShop.className = "btn success large";
+            }
+            if(gameState) gameState.shopStatus = 'closed'; 
         });
     }
 
@@ -171,5 +159,15 @@ document.addEventListener('DOMContentLoaded', () => {
             hideModal(); 
         });
     }
+
+    // --- EVENT LISTENERS: TECLADO GLOBAL (PARA QTE) ---
+    
+    window.addEventListener('keydown', (e) => {
+        handleKeyDown(e.key);
+    });
+
+    window.addEventListener('keyup', (e) => {
+        handleKeyUp(e.key);
+    });
 
 });
