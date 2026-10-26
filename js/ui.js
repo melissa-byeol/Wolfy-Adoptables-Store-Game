@@ -1,6 +1,6 @@
-// js/ui.js - V4
+// js/ui.js - V4 FINAL
 
-function initStoreGrid() { /* No hace nada, se genera dinámicamente */ }
+function initStoreGrid() { /* No hace nada */ }
 
 function updateStoreMapView() {
     if (!gameState) return;
@@ -9,8 +9,6 @@ function updateStoreMapView() {
     
     grid.innerHTML = '';
     
-    // Configurar grilla según capacidad actual
-    // Si son 48 slots: 6 cols x 8 rows. Si son 60: 6x10. Si son 72: 6x12.
     const cols = 6;
     const rows = Math.ceil(gameState.currentMaxSlots / cols);
     grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
@@ -81,7 +79,6 @@ function renderCustomers() {
         }
     });
     
-    // Mostrar/Ocultar indicador de cajero
     const indicator = document.getElementById('auto-cashier-indicator');
     if(hasAuto) indicator.classList.remove('hidden'); else indicator.classList.add('hidden');
 }
@@ -248,7 +245,6 @@ function succeedDanger() {
     showToast("✅ Calma restaurada.");
     const cust = currentDangerCust;
     currentDangerCust = null;
-    // Abrir modal normal
     const types = new Set(cust.cart.map(i=>i.type));
     if(types.size===1) showQuickPayModal(cust); else showManualCalcModal(cust);
 }
@@ -257,12 +253,24 @@ function failDanger(reason) {
     clearInterval(petInt);
     document.getElementById('interaction-overlay').classList.add('hidden');
     document.getElementById('pet-bar-container').classList.add('hidden');
-    showToast(`❌ ${reason}`);
-    if(currentDangerCust) {
+    
+    // Lógica de Mordiscos
+    const now = Date.now();
+    gameState.biteCounter++;
+    if (now - gameState.lastBiteTime > 30000) { gameState.biteCounter = 1; }
+    gameState.lastBiteTime = now;
+
+    showToast(`❌ ${reason} (Mordiscos: ${gameState.biteCounter}/10)`);
+
+    if (currentDangerCust) {
         currentDangerCust.state = 'leaving_angry'; currentDangerCust.progress = 100;
         renderCustomers();
     }
     currentDangerCust = null;
+
+    if (gameState.biteCounter >= 10) {
+        triggerGameOver('fatality');
+    }
 }
 
 function hideAllModals() {
