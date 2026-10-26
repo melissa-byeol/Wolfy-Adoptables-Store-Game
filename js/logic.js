@@ -1,607 +1,272 @@
-// js/logic.js - VERSIÓN V3.1 FIX SPAWN & MOBILE READY
+// js/logic.js - V4 WINTER & UPGRADES
 
-// --- CONSTANTES ECONÓMICAS Y DE CONFIGURACIÓN ---
-const COST_LOTE_WHITE = 5.00;
-const UNITS_PER_LOTE_WHITE = 12;
-const PRICE_WHITE_WOLFIE = 1.00; 
+// --- CONSTANTES ---
+const COST_LOTE_WHITE = 5.00; const UNITS_LOTE_WHITE = 12; const PRICE_WHITE = 1.00; const PRES_WHITE = 0.50;
+const COST_LOTE_BROWN = 12.00; const UNITS_LOTE_BROWN = 12; const PRICE_BROWN = 2.50; const PRES_BROWN = 2.00;
+const COST_LOTE_WINTER = 30.00; const UNITS_LOTE_WINTER = 6; const PRICE_WINTER_BASE = 6.00; const PRICE_WINTER_FRESH = 30.00; const PRES_WINTER = 5.00;
 
-const COST_LOTE_BROWN = 12.00;
-const UNITS_PER_LOTE_BROWN = 6;
-const PRICE_BROWN_WOLFIE = 2.50;
+const BASE_MAX_SLOTS = 48;
+const WINTER_HEAT_LIMIT_BASE = 4000; // 4s
+const WINTER_HEAT_LIMIT_AC = 12000;  // 12s
 
-const PRESERVATION_COST_PER_UNIT = 0.50;
-const PRESERVATION_COST_BROWN = 2.00;
-
-const DAILY_QUOTA_GOAL = 30.00;
-const MAX_CUSTOMERS_IN_STORE = 8; 
-const SPAWN_RATE_CHANCE = 0.15;   
-const MAX_CAPACITY_VISUAL = 72;
+const FIRST_NAMES = ["Alejandro", "Sofia", "Mateo", "Valentina", "Diego", "Camila"];
+const LAST_NAMES = ["García", "Rodríguez", "Martínez", "López", "Hernández", "Torres"];
 
 let gameInterval = null; 
 
-// Listas simplificadas
-const FIRST_NAMES = ["Alejandro", "Sofia", "Mateo", "Valentina", "Diego", "Camila", "Lucas", "Emma"];
-const LAST_NAMES = ["García", "Rodríguez", "Martínez", "López", "Hernández", "Torres", "Flores", "Rivera"];
-
 // --- INICIALIZACIÓN ---
-
 function initNewGame() {
     gameState = JSON.parse(JSON.stringify(DEFAULT_STATE));
-    gameState.budget = 10.00; 
+    gameState.budget = 10.00;
     gameState.inventory.white_wolfie = 24;
-    gameState.inventory.brown_wolfie = 0;
     gameState.daily_tracker.start_budget = gameState.budget;
     gameState.daily_tracker.earned_today = 0;
     gameState.customers = [];
     gameState.shopStatus = 'closed';
-    gameState.interactionMode = null;
-    gameState.pendingCustomerForPayment = null;
+    gameState.currentMaxSlots = BASE_MAX_SLOTS;
 
     updateUI();
     showModal("Bienvenido", "Tu tienda ha sido inaugurada.\nTienes 24 Lobitos Básicos.\nPresiona 'ABRIR TIENDA' para comenzar.");
 }
 
-// --- CONTROL DE APERTURA/CIERRE ---
-
+// --- CONTROL TIENDA ---
 function toggleShopState() {
-    if (gameState.shopStatus === 'closed') {
-        openShop();
-    } else {
-        closeShop();
-    }
+    if (gameState.shopStatus === 'closed') openShop(); else closeShop();
 }
 
 function openShop() {
     if (gameState.shopStatus === 'open') return;
-    
     gameState.shopStatus = 'open';
     gameState.customers = []; 
     
-    // Actualizar UI inmediata
-    const btnToggle = document.getElementById('btn-toggle-shop');
-    if(btnToggle) {
-        btnToggle.textContent = "CERRAR TIENDA";
-        btnToggle.classList.remove('success');
-        btnToggle.classList.add('danger');
-    }
-    
-    const statusEl = document.getElementById('display-shop-status');
-    if(statusEl) {
-        statusEl.textContent = "ABIERTA";
-        statusEl.className = "stat-item status-open";
-    }
+    document.getElementById('btn-toggle-shop').textContent = "CERRAR TIENDA";
+    document.getElementById('btn-toggle-shop').classList.replace('success', 'danger');
+    document.getElementById('display-shop-status').textContent = "ABIERTA";
+    document.getElementById('display-shop-status').className = "stat-item status-open";
 
-    // Iniciar Loop Principal
-    if (gameInterval) clearInterval(gameInterval);
     gameInterval = setInterval(gameTick, 500);
-    
-    // Spawn inicial garantizado
-    setTimeout(() => {
-        if(gameState.shopStatus === 'open') {
-            spawnCustomer();
-            spawnCustomer();
-        }
-    }, 100);
+    spawnCustomer(); spawnCustomer();
 }
 
 function closeShop() {
     if (gameState.shopStatus === 'closed') return;
-
-    if (gameInterval) {
-        clearInterval(gameInterval);
-        gameInterval = null;
-    }
-    
+    clearInterval(gameInterval); gameInterval = null;
     gameState.shopStatus = 'closed';
     gameState.customers = []; 
-
     processEndOfDay();
     
-    const btnToggle = document.getElementById('btn-toggle-shop');
-    if(btnToggle) {
-        btnToggle.textContent = "ABRIR TIENDA";
-        btnToggle.classList.remove('danger');
-        btnToggle.classList.add('success');
-    }
-    
-    const statusEl = document.getElementById('display-shop-status');
-    if(statusEl) {
-        statusEl.textContent = "CERRADA";
-        statusEl.className = "stat-item status-closed";
-    }
+    document.getElementById('btn-toggle-shop').textContent = "ABRIR TIENDA";
+    document.getElementById('btn-toggle-shop').classList.replace('danger', 'success');
+    document.getElementById('display-shop-status').textContent = "CERRADA";
+    document.getElementById('display-shop-status').className = "stat-item status-closed";
 }
 
-// --- LÓGICA DE SIMULACIÓN (EL TICK) ---
-
-function spawnCustomer() {
-    // Validación de estado
-    if (!gameState || gameState.shopStatus !== 'open') return;
-    if (gameState.customers.length >= MAX_CUSTOMERS_IN_STORE) return;
-
-    const firstName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
-    const lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
-    
-    let desiredType = 'white';
-    let quantity = Math.floor(Math.random() * 4) + 1;
-    
-    // Lógica de preferencia Brown
-    if (gameState.inventory.brown_wolfie > 0 && Math.random() < 0.3) {
-        desiredType = 'brown';
-        quantity = Math.floor(Math.random() * 2) + 1; 
-    }
-
-    const newCustomer = {
-        id: Date.now() + Math.random(),
-        name: `${firstName} ${lastName}`,
-        state: 'entering',
-        progress: 0,
-        waitTimer: 0,
-        cart: [],
-        desiredType: desiredType,
-        desiredQty: quantity
-    };
-    
-    gameState.customers.push(newCustomer);
-    console.log(`Spawned: ${newCustomer.name} wants ${quantity}x ${desiredType}`);
-}
-
+// --- SIMULACIÓN ---
 function gameTick() {
-    if (!gameState || gameState.shopStatus !== 'open') return;
-
     let anyActionTaken = false;
+    const hasAutoCashier = gameState.upgrades.expansion2;
 
-    // 1. Intentar Spawn Aleatorio
-    if (Math.random() < SPAWN_RATE_CHANCE) {
-        spawnCustomer();
-        anyActionTaken = true;
-    }
-
-    // 2. Procesar Clientes Existentes
-    // Iteramos hacia atrás para poder eliminar elementos sin romper índices
     for (let i = gameState.customers.length - 1; i >= 0; i--) {
         const cust = gameState.customers[i];
         
         switch (cust.state) {
             case 'entering':
-                cust.progress += 5; // Velocidad de entrada
-                if (cust.progress >= 100) {
-                    cust.state = 'shopping';
-                    cust.progress = 0;
-                    cust.waitTimer = 0;
-                    anyActionTaken = true;
-                }
+                cust.progress += 10; 
+                if (cust.progress >= 100) { cust.state = 'shopping'; cust.progress = 0; anyActionTaken = true; }
                 break;
 
             case 'shopping':
                 cust.waitTimer++; 
-                // Tiempo de espera antes de decidir compra (simula mirar estantes)
                 if (cust.waitTimer > 2) { 
-                    
-                    const typeToTake = cust.desiredType;
-                    const qtyWanted = cust.desiredQty;
-                    
-                    let availableStock = 0;
-                    if (typeToTake === 'white') availableStock = gameState.inventory.white_wolfie;
-                    if (typeToTake === 'brown') availableStock = gameState.inventory.brown_wolfie;
+                    const type = cust.desiredType;
+                    const qty = cust.desiredQty;
+                    let stock = 0;
+                    if(type==='white') stock = gameState.inventory.white_wolfie;
+                    if(type==='brown') stock = gameState.inventory.brown_wolfie;
+                    if(type==='winter') stock = gameState.inventory.winteruff;
 
-                    if (availableStock >= qtyWanted) {
-                        // Éxito total
-                        for(let k = 0; k < qtyWanted; k++) {
-                            if (typeToTake === 'white') {
-                                gameState.inventory.white_wolfie--;
-                                cust.cart.push({ type: 'white', price: PRICE_WHITE_WOLFIE });
-                            } else {
-                                gameState.inventory.brown_wolfie--;
-                                cust.cart.push({ type: 'brown', price: PRICE_BROWN_WOLFIE });
-                            }
+                    if (stock >= qty) {
+                        for(let k=0; k<qty; k++) {
+                            if(type==='white') { gameState.inventory.white_wolfie--; cust.cart.push({type:'white', price:PRICE_WHITE}); }
+                            if(type==='brown') { gameState.inventory.brown_wolfie--; cust.cart.push({type:'brown', price:PRICE_BROWN}); }
+                            if(type==='winter') { gameState.inventory.winteruff--; cust.cart.push({type:'winter', price:PRICE_WINTER_FRESH}); } // Precio inicial, se ajusta al cobrar
                         }
-                        cust.state = 'going_to_checkout';
-                        cust.progress = 0;
-                        anyActionTaken = true;
-                        
-                    } else if (availableStock > 0) {
-                        // Parcial
-                        for(let k = 0; k < availableStock; k++) {
-                             if (typeToTake === 'white') {
-                                gameState.inventory.white_wolfie--;
-                                cust.cart.push({ type: 'white', price: PRICE_WHITE_WOLFIE });
-                            } else {
-                                gameState.inventory.brown_wolfie--;
-                                cust.cart.push({ type: 'brown', price: PRICE_BROWN_WOLFIE });
-                            }
+                        cust.state = 'going_to_checkout'; cust.progress = 0; anyActionTaken = true;
+                    } else if (stock > 0) {
+                        for(let k=0; k<stock; k++) {
+                             if(type==='white') { gameState.inventory.white_wolfie--; cust.cart.push({type:'white', price:PRICE_WHITE}); }
+                             if(type==='brown') { gameState.inventory.brown_wolfie--; cust.cart.push({type:'brown', price:PRICE_BROWN}); }
+                             if(type==='winter') { gameState.inventory.winteruff--; cust.cart.push({type:'winter', price:PRICE_WINTER_FRESH}); }
                         }
-                        cust.state = 'going_to_checkout';
-                        cust.progress = 0;
-                        anyActionTaken = true;
-                        
+                        cust.state = 'going_to_checkout'; cust.progress = 0; anyActionTaken = true;
                     } else {
-                        // Sin stock -> Se va enfadado
-                        cust.state = 'leaving_angry';
-                        cust.progress = 0; // Reiniciamos progreso para animación de salida
-                        anyActionTaken = true;
+                        cust.state = 'leaving_angry'; cust.progress = 100; anyActionTaken = true;
                     }
                 }
                 break;
 
             case 'going_to_checkout':
-                cust.progress += 10; // Velocidad hacia caja
+                cust.progress += 15; 
                 if (cust.progress >= 100) {
-                    cust.state = 'waiting_in_queue';
-                    cust.progress = 0;
-                    anyActionTaken = true;
+                    cust.state = 'waiting_in_queue'; cust.progress = 100; anyActionTaken = true;
                 }
                 break;
 
             case 'waiting_in_queue':
-                // Paciencia infinita por ahora. El jugador debe actuar.
+                // Lógica de Cajero Automático
+                if (hasAutoCashier && !cust.hasDanger && !cust.hasWinter) {
+                    // El cajero lo atiende automáticamente después de un breve delay
+                    if (!cust.autoProcessed) {
+                        cust.autoTimer = (cust.autoTimer || 0) + 1;
+                        if (cust.autoTimer > 2) { // 1 segundo de proceso
+                            // Cobro automático
+                            const total = cust.cart.reduce((sum, item) => sum + item.price, 0);
+                            gameState.budget += total;
+                            gameState.daily_tracker.earned_today += total;
+                            gameState.stats.total_sales_lifetime += cust.cart.length;
+                            cust.state = 'leaving_happy'; cust.progress = 100;
+                            anyActionTaken = true;
+                            showToast("🤖 Cajero atendió a " + cust.name.split(' ')[0]);
+                        }
+                    }
+                }
                 break;
 
-            case 'leaving_happy':
-            case 'leaving_angry':
-                cust.progress += 10; // Animación de salida
-                if (cust.progress >= 100) {
-                    gameState.customers.splice(i, 1); // Eliminar del array
-                    anyActionTaken = true;
-                }
+            case 'leaving_happy': case 'leaving_angry':
+                cust.progress -= 20; 
+                if (cust.progress <= -50) { gameState.customers.splice(i, 1); anyActionTaken = true; }
                 break;
         }
     }
 
-    // Renderizar SIEMPRE si hubo cambios o siempre para suavidad
-    // Nota: En móvil, renderizar cada 500ms es barato.
-    renderCustomers();
-    updateStoreMapView();
-    updateUI(); // Actualiza textos de dinero/meta
+    if (gameState.customers.length < 8) {
+        if (Math.random() < 0.15) { spawnCustomer(); anyActionTaken = true; }
+    }
+
+    if (anyActionTaken) { renderCustomers(); updateStoreMapView(); }
 }
 
-// --- INTERACCIÓN DEL JUGADOR (COBRO) ---
+function spawnCustomer() {
+    const fn = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
+    const ln = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
+    
+    let type = 'white'; let qty = Math.floor(Math.random() * 4) + 1;
+    const rand = Math.random();
+    
+    if (gameState.inventory.brown_wolfie > 0 && rand < 0.3) { type = 'brown'; qty = Math.floor(Math.random() * 2) + 1; }
+    else if (gameState.inventory.winteruff > 0 && rand > 0.9) { type = 'winter'; qty = 1; }
 
-function analyzeCartComplexity(customer) {
-    const typesInCart = new Set(customer.cart.map(item => item.type));
-    return typesInCart.size === 1 ? 'simple' : 'complex';
+    const newCust = {
+        id: Date.now() + Math.random(), name: `${fn} ${ln}`, state: 'entering', progress: 0, waitTimer: 0,
+        cart: [], desiredType: type, desiredQty: qty, interactionStartTime: null,
+        hasDanger: (type === 'brown'), hasWinter: (type === 'winter'), autoTimer: 0
+    };
+    gameState.customers.push(newCust);
 }
 
+// --- COBRO Y PELIGROS ---
 function attemptCheckout(customerId) {
-    const customerIndex = gameState.customers.findIndex(c => c.id == customerId);
-    if (customerIndex === -1) return;
+    const cust = gameState.customers.find(c => c.id == customerId);
+    if (!cust || cust.state !== 'waiting_in_queue') return;
 
-    const customer = gameState.customers[customerIndex];
+    cust.interactionStartTime = Date.now();
 
-    if (customer.state !== 'waiting_in_queue') return;
-
-    // VERIFICACIÓN DE PELIGRO (Brown Wolfies)
-    const hasBrown = customer.cart.some(item => item.type === 'brown');
-    
-    if (hasBrown) {
-        showDangerousPayModal(customer);
-        return; // Detener flujo normal
-    }
-
-    const complexity = analyzeCartComplexity(customer);
-
-    if (complexity === 'simple') {
-        showQuickPayModal(customer);
-    } else {
-        showManualCalcModal(customer);
+    if (cust.hasDanger) startDangerSequence(cust);
+    else if (cust.hasWinter) showWinteruffPayModal(cust);
+    else {
+        // Normal
+        const types = new Set(cust.cart.map(i => i.type));
+        if (types.size === 1) showQuickPayModal(cust);
+        else showManualCalcModal(cust);
     }
 }
 
-function processQuickPayment(customerId, expectedAmount) {
-    const customer = gameState.customers.find(c => c.id == customerId);
-    if (!customer) return;
+// --- GESTIÓN STOCK Y MEJORAS ---
+function buyLote(type) {
+    let cost = 0, units = 0;
+    if(type==='white') { cost=COST_LOTE_WHITE; units=UNITS_LOTE_WHITE; }
+    if(type==='brown') { cost=COST_LOTE_BROWN; units=UNITS_LOTE_BROWN; }
+    if(type==='winter') { cost=COST_LOTE_WINTER; units=UNITS_LOTE_WINTER; }
 
-    gameState.budget += expectedAmount;
-    gameState.daily_tracker.earned_today += expectedAmount;
-    gameState.stats.total_sales_lifetime += customer.cart.length;
-    
-    customer.state = 'leaving_happy';
-    customer.progress = 0; // Reset para animación
-
-    hideQuickPayModal();
-    updateUI();
-    renderCustomers();
-    showToast(`✅ Cobrado: $${expectedAmount.toFixed(2)}`);
-}
-
-function confirmPayment(inputAmount, customerId) {
-    const customer = gameState.customers.find(c => c.id == customerId);
-    if (!customer) return;
-
-    const expectedTotal = customer.cart.reduce((sum, item) => sum + item.price, 0);
-    const paid = parseFloat(inputAmount);
-
-    if (isNaN(paid)) {
-        showError("Por favor ingresa un número válido.");
-        return;
-    }
-
-    // Tolerancia pequeña para decimales flotantes (ej 2.50 vs 2.49999)
-    if (Math.abs(paid - expectedTotal) < 0.01) {
-        gameState.budget += paid;
-        gameState.daily_tracker.earned_today += paid;
-        gameState.stats.total_sales_lifetime += customer.cart.length;
+    if (gameState.budget >= cost) {
+        gameState.budget -= cost;
+        gameState.inventory[type+'_wolfie'] += units; // Nota: winteruff key es 'winteruff' en state, ajustar si necesario
+        if(type==='winter') gameState.inventory.winteruff += units; // Fix específico
         
-        customer.state = 'leaving_happy';
-        customer.progress = 0;
+        updateUI(); showToast(`Comprado lote ${type}.`);
+    } else showErrorToast("Fondos insuficientes.");
+}
+
+function fillStock(type) {
+    const current = gameState.inventory[type+'_wolfie'] || gameState.inventory[type]; // Fix keys
+    const max = gameState.currentMaxSlots;
+    if(current >= max) return showToast("Lleno.");
+    
+    const needed = max - current;
+    let unitCost=0, loteSize=0;
+    if(type==='white') { unitCost=COST_LOTE_WHITE; loteSize=UNITS_LOTE_WHITE; }
+    if(type==='brown') { unitCost=COST_LOTE_BROWN; loteSize=UNITS_LOTE_BROWN; }
+    if(type==='winter') { unitCost=COST_LOTE_WINTER; loteSize=UNITS_LOTE_WINTER; }
+
+    const lots = Math.ceil(needed/loteSize);
+    const total = lots * unitCost;
+    
+    if(gameState.budget >= total) {
+        gameState.budget -= total;
+        if(type==='white') gameState.inventory.white_wolfie += lots*loteSize;
+        if(type==='brown') gameState.inventory.brown_wolfie += lots*loteSize;
+        if(type==='winter') gameState.inventory.winteruff += lots*loteSize;
+        updateUI(); showToast(`Estoque ${type} lleno.`);
+    } else showErrorToast(`Necesitas $${total}.`);
+}
+
+function buyUpgrade(id) {
+    let cost = 0;
+    if(id==='exp1') cost = 50;
+    if(id==='ac') cost = 125;
+    if(id==='exp2') cost = 200;
+
+    if(gameState.budget >= cost) {
+        gameState.budget -= cost;
+        gameState.upgrades[id] = true;
         
-        hidePaymentModal();
-        updateUI();
-        renderCustomers();
-        showToast(`✅ Pago Confirmado: $${paid.toFixed(2)}`);
-    } else {
-        showError(`Monto incorrecto. Esperado: $${expectedTotal.toFixed(2)}. Recibido: $${paid.toFixed(2)}.`);
-    }
-}
-
-// --- GESTIÓN DE STOCK Y FIN DE DÍA ---
-
-function buySingleLoteWhite() {
-    if (gameState.budget >= COST_LOTE_WHITE) {
-        gameState.budget -= COST_LOTE_WHITE;
-        gameState.inventory.white_wolfie += UNITS_PER_LOTE_WHITE;
-        updateUI(); 
-        showToast(`Comprado 1 lote Blanco (+${UNITS_PER_LOTE_WHITE} uds).`);
-    } else {
-        showErrorToast("Fondos insuficientes.");
-    }
-}
-
-function fillMaxStockWhite() {
-    const currentStock = gameState.inventory.white_wolfie;
-    const maxCapacity = 48; // Límite visual/blanco
-    
-    if (currentStock >= maxCapacity) {
-        showToast("Almacén Blanco lleno.");
-        return;
-    }
-
-    const neededUnits = maxCapacity - currentStock;
-    const lotsNeeded = Math.ceil(neededUnits / UNITS_PER_LOTE_WHITE);
-    const totalCost = lotsNeeded * COST_LOTE_WHITE;
-
-    if (gameState.budget >= totalCost) {
-        gameState.budget -= totalCost;
-        gameState.inventory.white_wolfie += (lotsNeeded * UNITS_PER_LOTE_WHITE);
-        updateUI();
-        showToast(`Almacén Blanco repleto.`);
-    } else {
-        showErrorToast(`No tienes suficiente dinero. Necesitas $${totalCost}.`);
-    }
-}
-
-function buySingleLoteBrown() {
-    if (gameState.budget >= COST_LOTE_BROWN) {
-        gameState.budget -= COST_LOTE_BROWN;
-        gameState.inventory.brown_wolfie += UNITS_PER_LOTE_BROWN;
-        updateUI(); 
-        showToast(`Comprado 1 lote Marrón (+${UNITS_PER_LOTE_BROWN} uds).`);
-    } else {
-        showErrorToast("Fondos insuficientes para Gordinflones.");
-    }
-}
-
-function fillMaxStockBrown() {
-    const currentStock = gameState.inventory.brown_wolfie;
-    const maxCapacity = 24; // Límite visual/marrón
-    
-    if (currentStock >= maxCapacity) {
-        showToast("Almacén Marrón lleno.");
-        return;
-    }
-
-    const neededUnits = maxCapacity - currentStock;
-    const lotsNeeded = Math.ceil(neededUnits / UNITS_PER_LOTE_BROWN);
-    const totalCost = lotsNeeded * COST_LOTE_BROWN;
-
-    if (gameState.budget >= totalCost) {
-        gameState.budget -= totalCost;
-        gameState.inventory.brown_wolfie += (lotsNeeded * UNITS_PER_LOTE_BROWN);
-        updateUI();
-        showToast(`Almacén Marrón repleto.`);
-    } else {
-        showErrorToast(`No tienes suficiente dinero. Necesitas $${totalCost}.`);
-    }
+        if(id==='exp1') gameState.currentMaxSlots += 12;
+        if(id==='exp2') gameState.currentMaxSlots += 12;
+        
+        updateUI(); showToast("¡Mejora instalada!");
+    } else showErrorToast("Fondos insuficientes.");
 }
 
 function processEndOfDay() {
-    const whiteLeft = gameState.inventory.white_wolfie;
-    const brownLeft = gameState.inventory.brown_wolfie;
+    const w = gameState.inventory.white_wolfie;
+    const b = gameState.inventory.brown_wolfie;
+    const wi = gameState.inventory.winteruff;
     
-    const preservationWhite = whiteLeft * PRESERVATION_COST_PER_UNIT;
-    const preservationBrown = brownLeft * PRESERVATION_COST_BROWN;
-    const totalPreservation = preservationWhite + preservationBrown;
+    const cost = (w*PRES_WHITE) + (b*PRES_BROWN) + (wi*PRES_WINTER);
+    gameState.budget -= cost;
     
-    gameState.budget -= totalPreservation;
-    
-    if (gameState.budget < 0) {
-        gameOver(`BANCARROTA.\nPierdes $${Math.abs(gameState.budget).toFixed(2)} adicionales.`);
-        return;
-    }
+    if(gameState.budget < 0) { gameOver(`Bancarrota. Deuda: $${Math.abs(gameState.budget).toFixed(2)}`); return; }
 
-    const reportBody = document.getElementById('day-report-body');
-    if(reportBody) {
-        let msg = `VENTAS BRUTAS HOY: $${gameState.daily_tracker.earned_today.toFixed(2)}\n`;
-        msg += `STOCK BLANCO RESTANTE: ${whiteLeft} uds (-$${preservationWhite.toFixed(2)})\n`;
-        msg += `STOCK MARRÓN RESTANTE: ${brownLeft} uds (-$${preservationBrown.toFixed(2)})\n`;
-        msg += `----------------------------------\n`;
-        msg += `BALANCE FINAL: $${gameState.budget.toFixed(2)}\n\n`;
-        
-        if (gameState.daily_tracker.earned_today >= DAILY_QUOTA_GOAL) {
-            msg += "✅ META DIARIA SUPERADA.";
-        } else {
-            msg += "⚠️ NO SE CUMPLIÓ LA META ($30.00).";
-        }
-        
-        reportBody.textContent = msg;
-        document.getElementById('day-end-modal').classList.remove('hidden');
-    }
+    const report = document.getElementById('day-report-body');
+    report.textContent = `Ventas: $${gameState.daily_tracker.earned_today.toFixed(2)}\nPreservación: -$${cost.toFixed(2)}\nBalance: $${gameState.budget.toFixed(2)}\n\n${gameState.daily_tracker.earned_today >= 30 ? '✅ Meta Cumplida' : '⚠️ Meta Fallida'}`;
+    document.getElementById('day-end-modal').classList.remove('hidden');
 }
 
 function nextDay() {
     gameState.day++;
     gameState.daily_tracker.start_budget = gameState.budget;
     gameState.daily_tracker.earned_today = 0;
-    gameState.customers = []; 
-    gameState.shopStatus = 'closed'; // Forzar cierre lógico
-    
+    gameState.customers = [];
     saveGame();
-    
-    const dayEndModal = document.getElementById('day-end-modal');
-    if(dayEndModal) dayEndModal.classList.add('hidden');
-    
+    document.getElementById('day-end-modal').classList.add('hidden');
     updateUI();
-    
-    // Resetear botón de tienda
-    const btnToggle = document.getElementById('btn-toggle-shop');
-    if(btnToggle) {
-        btnToggle.textContent = "ABRIR TIENDA";
-        btnToggle.className = "btn success large";
-    }
 }
 
 function checkQuotaStatus() {
-    const statusEl = document.getElementById('display-quota-status');
-    if (!statusEl || !gameState) return;
-
-    if (gameState.daily_tracker.earned_today >= DAILY_QUOTA_GOAL) {
-        statusEl.textContent = "Cumplida ✅";
-        statusEl.style.color = "#4caf50";
-    } else {
-        statusEl.textContent = `$${gameState.daily_tracker.earned_today.toFixed(2)} / $${DAILY_QUOTA_GOAL}`;
-        statusEl.style.color = "#fff";
-    }
+    const el = document.getElementById('display-quota-status');
+    if(gameState.daily_tracker.earned_today >= 30) { el.textContent = "Cumplida ✅"; el.style.color="#4caf50"; }
+    else { el.textContent = `$${gameState.daily_tracker.earned_today.toFixed(2)} / $30.00`; el.style.color="#fff"; }
 }
 
-function gameOver(reason) {
-    alert("JUEGO TERMINADO\n" + reason);
-    clearSave();
-    location.reload();
-}
-
-function showErrorToast(msg) {
-    console.error(msg);
-    showToast(msg);
-}
-
-// --- MECÁNICA DE PELIGRO (QTE) ---
-
-const PET_DURATION_REQUIRED = 4; // Segundos necesarios
-
-function handleKeyDown(key) {
-    if (!gameState || gameState.shopStatus !== 'open') return; 
-
-    const k = key.toLowerCase();
-
-    // Solo interactuar si estamos en modo grabbing o petting
-    if (gameState.interactionMode === 'grabbing') {
-        if (k === 'g') {
-             gameState.interactionMode = 'petting';
-             gameState.petTimer = 0; 
-             startPettingTimer();
-             updateInteractionUI();
-        }
-    }
-}
-
-function handleKeyUp(key) {
-    if (!gameState) return;
-    const k = key.toLowerCase();
-    
-    // Si sueltas P durante el acariciado -> Falla
-    if (k === 'p' && gameState.interactionMode === 'petting') {
-        failInteraction("Soltaste demasiado pronto. ¡Mordisco!");
-    }
-    
-    // Si sueltas G durante el acariciado -> Falla (perdiste control)
-    if (k === 'g' && gameState.interactionMode === 'petting') {
-         failInteraction("Perdiste el agarre. ¡Mordisco!");
-    }
-}
-
-let petInterval = null;
-
-function startPettingTimer() {
-    clearInterval(petInterval);
-    petInterval = setInterval(() => {
-        if (!gameState || gameState.interactionMode !== 'petting') {
-            clearInterval(petInterval);
-            return;
-        }
-        
-        gameState.petTimer += 0.1; 
-        
-        const progressBar = document.getElementById('pet-progress-bar');
-        if(progressBar) {
-            const percent = Math.min((gameState.petTimer / PET_DURATION_REQUIRED) * 100, 100);
-            progressBar.style.width = `${percent}%`;
-        }
-
-        if (gameState.petTimer >= PET_DURATION_REQUIRED) {
-            succeedInteraction();
-        }
-    }, 100);
-}
-
-function succeedInteraction() {
-    clearInterval(petInterval);
-    gameState.interactionMode = null;
-    gameState.petTimer = 0;
-    
-    showToast("✅ Control exitoso. Procediendo a caja.");
-    updateInteractionUI();
-    
-    const pendingCustomer = gameState.pendingCustomerForPayment;
-    if (pendingCustomer) {
-        // Reabrir modal de pago correspondiente
-        const complexity = analyzeCartComplexity(pendingCustomer);
-        if (complexity === 'simple') showQuickPayModal(pendingCustomer);
-        else showManualCalcModal(pendingCustomer);
-        
-        gameState.pendingCustomerForPayment = null; 
-    }
-}
-
-function failInteraction(reason) {
-    clearInterval(petInterval);
-    gameState.interactionMode = null;
-    gameState.petTimer = 0;
-    
-    showToast(`❌ ${reason}`);
-    
-    // Penalización: El cliente se va angry
-    if (gameState.pendingCustomerForPayment) {
-        const idx = gameState.customers.findIndex(c => c.id == gameState.pendingCustomerForPayment.id);
-        if (idx !== -1) {
-            gameState.customers[idx].state = 'leaving_angry';
-            gameState.customers[idx].progress = 0;
-        }
-        gameState.pendingCustomerForPayment = null;
-    }
-    
-    updateInteractionUI();
-    renderCustomers();
-}
-
-function updateInteractionUI() {
-    const overlay = document.getElementById('interaction-overlay');
-    if (!overlay) return;
-
-    if (gameState.interactionMode) {
-        overlay.classList.remove('hidden');
-        
-        const instruction = document.getElementById('interaction-instruction');
-        const barContainer = document.getElementById('pet-bar-container');
-        
-        if (instruction) {
-            if (gameState.interactionMode === 'grabbing') {
-                instruction.innerHTML = `⚠️ ATENCIÓN: Este cliente trae un <strong>Lobito Gordinflón</strong>.<br>Para evitar mordiscos:<br>1. Presiona <kbd>G</kbd> para agarrarlo.<br>2. Mantén <kbd>P</kbd> por 4s para calmarlo.`;
-                if(barContainer) barContainer.classList.add('hidden');
-            } else if (gameState.interactionMode === 'petting') {
-                instruction.textContent = "MAINTÉN [P] POR 4 SEGUNDOS PARA ACARICIARLO";
-                if(barContainer) barContainer.classList.remove('hidden');
-            }
-        }
-    } else {
-        overlay.classList.add('hidden');
-    }
-}
+function gameOver(reason) { alert("FIN DEL JUEGO\n"+reason); clearSave(); location.reload(); }
+function showErrorToast(msg) { console.error(msg); showToast(msg); }
