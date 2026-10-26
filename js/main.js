@@ -1,173 +1,117 @@
-// js/main.js - VERSIÓN V3.1 FIX EVENTS
+// js/main.js - V4
 
 document.addEventListener('DOMContentLoaded', () => {
     
-    // --- REFERENCIAS DOM ---
+    // Referencias
+    const btnNew = document.getElementById('btn-new-game');
+    const btnLoad = document.getElementById('btn-load-game');
+    const btnToggle = document.getElementById('btn-toggle-shop');
+    const btnNext = document.getElementById('btn-next-day');
+    const btnCloseGen = document.getElementById('btn-close-modal');
     
-    const startScreen = document.getElementById('start-screen');
-    const gameScreen = document.getElementById('game-screen');
-    
-    const btnNewGame = document.getElementById('btn-new-game');
-    const btnLoadGame = document.getElementById('btn-load-game');
-    
-    const btnToggleShop = document.getElementById('btn-toggle-shop');
-    
-    // Modal Pago Rápido
-    const quickPayModal = document.getElementById('quick-pay-modal');
-    const btnQuickConfirm = document.getElementById('btn-quick-confirm');
-    const btnQuickCancel = document.getElementById('btn-quick-cancel');
-    
-    // Modal Pago Manual
-    const paymentModal = document.getElementById('payment-modal');
-    const btnConfirmPayment = document.getElementById('btn-confirm-payment');
-    const btnCancelPayment = document.getElementById('btn-cancel-payment');
-    const payInputAmount = document.getElementById('pay-input-amount');
-    
-    // Modal Fin Día
-    const dayEndModal = document.getElementById('day-end-modal');
-    const btnNextDay = document.getElementById('btn-next-day');
-    
-    // Modal Genérico
-    const genericModal = document.getElementById('message-modal');
-    const btnCloseGenericModal = document.getElementById('btn-close-modal');
-
     // Reposición
-    const btnBuyLoteWhite = document.getElementById('btn-buy-lote-white');
-    const btnBuyMaxWhite = document.getElementById('btn-buy-max-white');
-    const btnBuyLoteBrown = document.getElementById('btn-buy-lote-brown');
-    const btnBuyMaxBrown = document.getElementById('btn-buy-max-brown');
-
-
-    // --- INICIALIZACIÓN GUARDADO ---
-
-    const savedData = loadGame();
-    if (savedData) {
-        btnLoadGame.disabled = false;
-        btnLoadGame.textContent = `Continuar (Día ${savedData.day})`;
-    }
-
-
-    // --- EVENT LISTENERS: MENÚ PRINCIPAL ---
-
-    if(btnNewGame) {
-        btnNewGame.addEventListener('click', () => {
-            startScreen.classList.add('hidden');
-            gameScreen.classList.remove('hidden');
-            initNewGame();
-            updateUI(); 
-        });
-    }
-
-    if(btnLoadGame) {
-        btnLoadGame.addEventListener('click', () => {
-            const data = loadGame();
-            if (data) {
-                gameState = data;
-                
-                // Seguridad: Si guardaron con tienda abierta, cerrarla lógicamente
-                if (gameState.shopStatus === 'open') {
-                    gameState.shopStatus = 'closed';
-                    gameState.customers = [];
-                }
-
-                startScreen.classList.add('hidden');
-                gameScreen.classList.remove('hidden');
-                
-                updateUI();
-                
-                if (btnToggleShop) {
-                     if (gameState.shopStatus === 'closed') {
-                        btnToggleShop.textContent = "ABRIR TIENDA";
-                        btnToggleShop.className = "btn success large"; 
-                    } else {
-                        btnToggleShop.textContent = "CERRAR TIENDA";
-                        btnToggleShop.className = "btn danger large"; 
-                    }
-                }
-            }
-        });
-    }
-
-
-    // --- EVENT LISTENERS: CONTROLES DE JUEGO ---
-
-    if (btnToggleShop) {
-        btnToggleShop.addEventListener('click', () => {
-            toggleShopState(); 
-        });
-    }
-
-
-    // --- EVENT LISTENERS: REPOSICIÓN ---
+    const btnBuyW = document.getElementById('btn-buy-lote-white');
+    const btnMaxW = document.getElementById('btn-buy-max-white');
+    const btnBuyB = document.getElementById('btn-buy-lote-brown');
+    const btnMaxB = document.getElementById('btn-buy-max-brown');
+    const btnBuyWi = document.getElementById('btn-buy-lote-winter');
+    const btnMaxWi = document.getElementById('btn-buy-max-winter');
     
-    if (btnBuyLoteWhite) btnBuyLoteWhite.addEventListener('click', buySingleLoteWhite);
-    if (btnBuyMaxWhite) btnBuyMaxWhite.addEventListener('click', fillMaxStockWhite);
-    if (btnBuyLoteBrown) btnBuyLoteBrown.addEventListener('click', buySingleLoteBrown);
-    if (btnBuyMaxBrown) btnBuyMaxBrown.addEventListener('click', fillMaxStockBrown);
+    // Mejoras
+    const btnUpg1 = document.getElementById('btn-upg-exp1');
+    const btnUpgAc = document.getElementById('btn-upg-ac');
+    const btnUpg2 = document.getElementById('btn-upg-exp2');
 
+    // Pago Manual
+    const btnConfPay = document.getElementById('btn-confirm-payment');
+    const btnCancelPay = document.getElementById('btn-cancel-payment');
+    const inpPay = document.getElementById('pay-input-amount');
+    const payModal = document.getElementById('payment-modal');
 
-    // --- EVENT LISTENERS: MODAL PAGO RÁPIDO ---
-    
-    if (btnQuickCancel) {
-        btnQuickCancel.addEventListener('click', hideQuickPayModal);
-    }
-    // Confirmación dinámica en showQuickPayModal
-
-
-    // --- EVENT LISTENERS: MODAL PAGO MANUAL ---
-
-    if (btnConfirmPayment) {
-        btnConfirmPayment.addEventListener('click', () => {
-            if(!paymentModal) return;
-            const customerId = parseFloat(paymentModal.dataset.currentCustomerId);
-            const amountStr = payInputAmount.value;
-            confirmPayment(amountStr, customerId);
-        });
+    // Carga Guardada
+    const saved = loadGame();
+    if(saved) {
+        btnLoad.disabled = false;
+        btnLoad.textContent = `Continuar (Día ${saved.day})`;
     }
 
-    if (btnCancelPayment) {
-        btnCancelPayment.addEventListener('click', hidePaymentModal);
-    }
-
-    if (payInputAmount) {
-        payInputAmount.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') btnConfirmPayment.click();
-        });
-    }
-
-
-    // --- EVENT LISTENERS: FIN DE DÍA ---
-
-    if (btnNextDay) {
-        btnNextDay.addEventListener('click', () => {
-            nextDay(); 
-            if(dayEndModal) dayEndModal.classList.add('hidden');
-            
-            if(btnToggleShop) {
-                btnToggleShop.textContent = "ABRIR TIENDA";
-                btnToggleShop.className = "btn success large";
-            }
-            if(gameState) gameState.shopStatus = 'closed'; 
-        });
-    }
-
-
-    // --- EVENT LISTENERS: MODAL GENÉRICO ---
-
-    if (btnCloseGenericModal) {
-        btnCloseGenericModal.addEventListener('click', () => {
-            hideModal(); 
-        });
-    }
-
-    // --- EVENT LISTENERS: TECLADO GLOBAL (PARA QTE) ---
-    
-    window.addEventListener('keydown', (e) => {
-        handleKeyDown(e.key);
+    // Eventos Menú
+    btnNew.addEventListener('click', () => {
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+        initNewGame(); updateUI();
     });
 
-    window.addEventListener('keyup', (e) => {
-        handleKeyUp(e.key);
+    btnLoad.addEventListener('click', () => {
+        const d = loadGame();
+        if(d) {
+            gameState = d;
+            if(gameState.shopStatus==='open') { gameState.shopStatus='closed'; gameState.customers=[]; }
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            updateUI();
+            if(gameState.shopStatus==='closed') {
+                btnToggle.textContent = "ABRIR TIENDA"; btnToggle.className = "btn success large";
+            }
+        }
     });
 
+    // Eventos Juego
+    btnToggle.addEventListener('click', () => {
+        toggleShopState();
+        if(gameState.shopStatus==='open') { btnToggle.textContent="CERRAR TIENDA"; btnToggle.className="btn danger large"; }
+        else { btnToggle.textContent="ABRIR TIENDA"; btnToggle.className="btn success large"; }
+    });
+
+    btnNext.addEventListener('click', () => {
+        nextDay();
+        btnToggle.textContent = "ABRIR TIENDA"; btnToggle.className = "btn success large";
+        gameState.shopStatus = 'closed';
+    });
+
+    btnCloseGen.addEventListener('click', () => document.getElementById('message-modal').classList.add('hidden'));
+
+    // Eventos Reposición
+    btnBuyW.addEventListener('click', () => buyLote('white'));
+    btnMaxW.addEventListener('click', () => fillStock('white'));
+    btnBuyB.addEventListener('click', () => buyLote('brown'));
+    btnMaxB.addEventListener('click', () => fillStock('brown'));
+    btnBuyWi.addEventListener('click', () => buyLote('winter'));
+    btnMaxWi.addEventListener('click', () => fillStock('winter'));
+
+    // Eventos Mejoras
+    btnUpg1.addEventListener('click', () => buyUpgrade('exp1'));
+    btnUpgAc.addEventListener('click', () => buyUpgrade('ac'));
+    btnUpg2.addEventListener('click', () => buyUpgrade('exp2'));
+
+    // Eventos Pago Manual
+    btnConfPay.addEventListener('click', () => {
+        const cid = parseFloat(payModal.dataset.cid);
+        confirmPayment(inpPay.value, cid);
+    });
+    btnCancelPay.addEventListener('click', () => payModal.classList.add('hidden'));
+    inpPay.addEventListener('keypress', e => { if(e.key==='Enter') btnConfPay.click(); });
+
+    // Eventos Teclado (Peligro)
+    window.addEventListener('keydown', e => {
+        if(gameState && gameState.interactionMode) handleDangerKey(e.key);
+    });
+    window.addEventListener('keyup', e => {
+        if(gameState && gameState.interactionMode) handleDangerKeyUp(e.key);
+    });
+    
+    // Helper para pago manual (definido aquí para acceso a variables)
+    function confirmPayment(val, cid) {
+        const cust = gameState.customers.find(c=>c.id==cid);
+        if(!cust) return;
+        const expected = cust.cart.reduce((s,i)=>s+i.price,0);
+        const paid = parseFloat(val);
+        if(isNaN(paid)) { document.getElementById('pay-error-msg').textContent="Número inválido."; document.getElementById('pay-error-msg').classList.remove('hidden'); return; }
+        if(paid === expected) {
+            processPayment(cid, paid);
+        } else {
+            document.getElementById('pay-error-msg').textContent=`Incorrecto. Esperado: $${expected.toFixed(2)}`;
+            document.getElementById('pay-error-msg').classList.remove('hidden');
+        }
+    }
 });
