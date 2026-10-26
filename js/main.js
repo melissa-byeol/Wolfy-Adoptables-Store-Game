@@ -1,4 +1,4 @@
-// js/main.js - V4 FINAL
+// js/main.js - V4.2 FINALES BUENOS
 
 document.addEventListener('DOMContentLoaded', () => {
     
@@ -82,7 +82,6 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCancelPay.addEventListener('click', () => payModal.classList.add('hidden'));
     inpPay.addEventListener('keypress', e => { if(e.key==='Enter') btnConfPay.click(); });
 
-    // Eventos Teclado (Peligro)
     window.addEventListener('keydown', e => {
         if(gameState && gameState.interactionMode) handleDangerKey(e.key);
     });
@@ -90,7 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if(gameState && gameState.interactionMode) handleDangerKeyUp(e.key);
     });
     
-    // Vigilante de Inactividad
     const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
     activityEvents.forEach(eventType => {
         window.addEventListener(eventType, () => {
