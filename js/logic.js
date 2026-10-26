@@ -1,4 +1,4 @@
-// js/logic.js - V4 FINAL
+// js/logic.js - V4.2 FINALES BUENOS
 
 // --- CONSTANTES ---
 const COST_LOTE_WHITE = 5.00; const UNITS_LOTE_WHITE = 12; const PRICE_WHITE = 1.00; const PRES_WHITE = 0.50;
@@ -47,7 +47,7 @@ function openShop() {
 
     gameInterval = setInterval(gameTick, 500);
     startWinterChecks();
-    resetInactivityTimer(); // Iniciar vigilante de siesta
+    resetInactivityTimer();
     
     spawnCustomer(); spawnCustomer();
 }
@@ -170,7 +170,7 @@ function spawnCustomer() {
 
 // --- COBRO Y PELIGROS ---
 function attemptCheckout(customerId) {
-    resetInactivityTimer(); // Interactuar resetea la siesta
+    resetInactivityTimer();
     const cust = gameState.customers.find(c => c.id == customerId);
     if (!cust || cust.state !== 'waiting_in_queue') return;
 
@@ -261,11 +261,15 @@ function processEndOfDay() {
 }
 
 function nextDay() {
+    // CHEQUEO DE FINALES BUENOS ANTES DE AVANZAR
+    if (checkGoodEndings()) return;
+
     gameState.day++;
     gameState.daily_tracker.start_budget = gameState.budget;
     gameState.daily_tracker.earned_today = 0;
     gameState.customers = [];
-    gameState.winterAbandonTimer = 0; // Resetear timer de negligencia
+    gameState.winterAbandonTimer = 0;
+    
     saveGame();
     document.getElementById('day-end-modal').classList.add('hidden');
     updateUI();
@@ -331,6 +335,74 @@ function triggerGameOver(type) {
     modal.classList.remove('hidden');
 }
 
+// --- FINALES BUENOS ---
+function checkGoodEndings() {
+    // CONDICIÓN 1: Emprendedor del Mes
+    if (gameState.day >= 7 && gameState.budget >= 1000) {
+        triggerGoodEnding('emprendedor');
+        return true;
+    }
+
+    // CONDICIÓN 2: Realzamineto de la era del hielo
+    if (gameState.day >= 7 && (gameState.stats.winter_sold_fresh || 0) >= 300) {
+        triggerGoodEnding('hielo');
+        return true;
+    }
+
+    // CONDICIÓN 3: Nah I'd Win
+    if (gameState.day >= 15 && gameState.budget >= 5000) {
+         if (!gameState.stats.has_sold_other_types) {
+             triggerGoodEnding('guiness');
+             return true;
+         }
+    }
+
+    return false;
+}
+
+function triggerGoodEnding(type) {
+    clearInterval(gameInterval);
+    clearInterval(winterCheckInterval);
+    if(inactivityTimer) clearTimeout(inactivityTimer);
+    
+    const modal = document.getElementById('message-modal');
+    const titleEl = document.getElementById('modal-title');
+    const bodyEl = document.getElementById('modal-body');
+    const btnClose = document.getElementById('btn-close-modal');
+
+    let title = "", msg = "", color = "";
+
+    switch(type) {
+        case 'emprendedor':
+            title = "EMPRENDEDOR DEL MES 🏆";
+            msg = "Tus socios están impresionados por tu eficiencia.\nTe han pagado unas vacaciones muy buenas en una isla privada (sin lobitos).";
+            color = "#ffd700";
+            break;
+        case 'hielo':
+            title = "REALZAMINETO DE LA ERA DEL HIELO ❄️";
+            msg = "Has vendido tantos Winteruffs que ahora las lluvias son divertidas nevadas...\nBuena suerte con todas esas peticiones de Winteruffs.";
+            color = "#00bcd4";
+            break;
+        case 'guiness':
+            title = "NAH I'D WIN 📖";
+            msg = "Rompiste las expectativas de todos, demostrando que lo básico igual sirve...\nAhora estarás dentro del libro de los records Guinness del próximo año.";
+            color = "#4caf50";
+            break;
+    }
+
+    titleEl.textContent = title;
+    titleEl.style.color = color;
+    bodyEl.innerText = msg;
+    
+    btnClose.textContent = "DISFRUTAR VICTORIA (REINICIAR)";
+    btnClose.onclick = () => {
+        clearSave();
+        location.reload();
+    };
+
+    modal.classList.remove('hidden');
+}
+
 // --- VIGILANTE DE INACTIVIDAD ---
 function resetInactivityTimer() {
     if (inactivityTimer) clearTimeout(inactivityTimer);
@@ -358,10 +430,10 @@ function startWinterChecks() {
         if(hasWaitingWinteruff) {
             gameState.winterAbandonTimer += 1;
         } else {
-            gameState.winterAbandonTimer = 0; // Reset si no hay nadie esperando
+            gameState.winterAbandonTimer = 0;
         }
 
-        if(gameState.winterAbandonTimer >= 180) { // 3 minutos
+        if(gameState.winterAbandonTimer >= 180) {
             triggerGameOver('accidente');
         }
 
