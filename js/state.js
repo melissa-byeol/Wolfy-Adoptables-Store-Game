@@ -11,8 +11,8 @@ const DEFAULT_STATE = {
     stats: { 
         total_sales_lifetime: 0, 
         days_survived: 0,
-        winter_sold_fresh: 0,      // Para el final de Hielo
-        has_sold_other_types: false // Para el final Nah I'd Win
+        winter_sold_fresh: 0,      // Para final Era del Hielo
+        has_sold_other_types: false // Para final Nah I'd Win
     },
     daily_tracker: { start_budget: 0, earned_today: 0 },
     
