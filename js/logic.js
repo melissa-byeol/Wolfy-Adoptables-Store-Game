@@ -1,4 +1,4 @@
-// js/logic.js - V4 WINTER & UPGRADES
+// js/logic.js - V4 FINAL
 
 // --- CONSTANTES ---
 const COST_LOTE_WHITE = 5.00; const UNITS_LOTE_WHITE = 12; const PRICE_WHITE = 1.00; const PRES_WHITE = 0.50;
@@ -6,13 +6,14 @@ const COST_LOTE_BROWN = 12.00; const UNITS_LOTE_BROWN = 12; const PRICE_BROWN = 
 const COST_LOTE_WINTER = 30.00; const UNITS_LOTE_WINTER = 6; const PRICE_WINTER_BASE = 6.00; const PRICE_WINTER_FRESH = 30.00; const PRES_WINTER = 5.00;
 
 const BASE_MAX_SLOTS = 48;
-const WINTER_HEAT_LIMIT_BASE = 4000; // 4s
-const WINTER_HEAT_LIMIT_AC = 12000;  // 12s
+const WINTER_HEAT_LIMIT_BASE = 4000;
+const WINTER_HEAT_LIMIT_AC = 12000;
 
 const FIRST_NAMES = ["Alejandro", "Sofia", "Mateo", "Valentina", "Diego", "Camila"];
 const LAST_NAMES = ["García", "Rodríguez", "Martínez", "López", "Hernández", "Torres"];
 
 let gameInterval = null; 
+let winterCheckInterval = null;
 
 // --- INICIALIZACIÓN ---
 function initNewGame() {
@@ -45,12 +46,18 @@ function openShop() {
     document.getElementById('display-shop-status').className = "stat-item status-open";
 
     gameInterval = setInterval(gameTick, 500);
+    startWinterChecks();
+    resetInactivityTimer(); // Iniciar vigilante de siesta
+    
     spawnCustomer(); spawnCustomer();
 }
 
 function closeShop() {
     if (gameState.shopStatus === 'closed') return;
     clearInterval(gameInterval); gameInterval = null;
+    clearInterval(winterCheckInterval); winterCheckInterval = null;
+    if(inactivityTimer) clearTimeout(inactivityTimer);
+    
     gameState.shopStatus = 'closed';
     gameState.customers = []; 
     processEndOfDay();
@@ -89,7 +96,7 @@ function gameTick() {
                         for(let k=0; k<qty; k++) {
                             if(type==='white') { gameState.inventory.white_wolfie--; cust.cart.push({type:'white', price:PRICE_WHITE}); }
                             if(type==='brown') { gameState.inventory.brown_wolfie--; cust.cart.push({type:'brown', price:PRICE_BROWN}); }
-                            if(type==='winter') { gameState.inventory.winteruff--; cust.cart.push({type:'winter', price:PRICE_WINTER_FRESH}); } // Precio inicial, se ajusta al cobrar
+                            if(type==='winter') { gameState.inventory.winteruff--; cust.cart.push({type:'winter', price:PRICE_WINTER_FRESH}); }
                         }
                         cust.state = 'going_to_checkout'; cust.progress = 0; anyActionTaken = true;
                     } else if (stock > 0) {
@@ -113,13 +120,10 @@ function gameTick() {
                 break;
 
             case 'waiting_in_queue':
-                // Lógica de Cajero Automático
                 if (hasAutoCashier && !cust.hasDanger && !cust.hasWinter) {
-                    // El cajero lo atiende automáticamente después de un breve delay
                     if (!cust.autoProcessed) {
                         cust.autoTimer = (cust.autoTimer || 0) + 1;
-                        if (cust.autoTimer > 2) { // 1 segundo de proceso
-                            // Cobro automático
+                        if (cust.autoTimer > 2) {
                             const total = cust.cart.reduce((sum, item) => sum + item.price, 0);
                             gameState.budget += total;
                             gameState.daily_tracker.earned_today += total;
@@ -166,6 +170,7 @@ function spawnCustomer() {
 
 // --- COBRO Y PELIGROS ---
 function attemptCheckout(customerId) {
+    resetInactivityTimer(); // Interactuar resetea la siesta
     const cust = gameState.customers.find(c => c.id == customerId);
     if (!cust || cust.state !== 'waiting_in_queue') return;
 
@@ -174,7 +179,6 @@ function attemptCheckout(customerId) {
     if (cust.hasDanger) startDangerSequence(cust);
     else if (cust.hasWinter) showWinteruffPayModal(cust);
     else {
-        // Normal
         const types = new Set(cust.cart.map(i => i.type));
         if (types.size === 1) showQuickPayModal(cust);
         else showManualCalcModal(cust);
@@ -183,6 +187,7 @@ function attemptCheckout(customerId) {
 
 // --- GESTIÓN STOCK Y MEJORAS ---
 function buyLote(type) {
+    resetInactivityTimer();
     let cost = 0, units = 0;
     if(type==='white') { cost=COST_LOTE_WHITE; units=UNITS_LOTE_WHITE; }
     if(type==='brown') { cost=COST_LOTE_BROWN; units=UNITS_LOTE_BROWN; }
@@ -190,15 +195,17 @@ function buyLote(type) {
 
     if (gameState.budget >= cost) {
         gameState.budget -= cost;
-        gameState.inventory[type+'_wolfie'] += units; // Nota: winteruff key es 'winteruff' en state, ajustar si necesario
-        if(type==='winter') gameState.inventory.winteruff += units; // Fix específico
+        if(type==='white') gameState.inventory.white_wolfie += units;
+        if(type==='brown') gameState.inventory.brown_wolfie += units;
+        if(type==='winter') gameState.inventory.winteruff += units;
         
         updateUI(); showToast(`Comprado lote ${type}.`);
     } else showErrorToast("Fondos insuficientes.");
 }
 
 function fillStock(type) {
-    const current = gameState.inventory[type+'_wolfie'] || gameState.inventory[type]; // Fix keys
+    resetInactivityTimer();
+    const current = gameState.inventory[type+'_wolfie'] || gameState.inventory[type];
     const max = gameState.currentMaxSlots;
     if(current >= max) return showToast("Lleno.");
     
@@ -221,6 +228,7 @@ function fillStock(type) {
 }
 
 function buyUpgrade(id) {
+    resetInactivityTimer();
     let cost = 0;
     if(id==='exp1') cost = 50;
     if(id==='ac') cost = 125;
@@ -245,7 +253,7 @@ function processEndOfDay() {
     const cost = (w*PRES_WHITE) + (b*PRES_BROWN) + (wi*PRES_WINTER);
     gameState.budget -= cost;
     
-    if(gameState.budget < 0) { gameOver(`Bancarrota. Deuda: $${Math.abs(gameState.budget).toFixed(2)}`); return; }
+    if(gameState.budget < 0) { triggerGameOver('bancarrota'); return; }
 
     const report = document.getElementById('day-report-body');
     report.textContent = `Ventas: $${gameState.daily_tracker.earned_today.toFixed(2)}\nPreservación: -$${cost.toFixed(2)}\nBalance: $${gameState.budget.toFixed(2)}\n\n${gameState.daily_tracker.earned_today >= 30 ? '✅ Meta Cumplida' : '⚠️ Meta Fallida'}`;
@@ -257,6 +265,7 @@ function nextDay() {
     gameState.daily_tracker.start_budget = gameState.budget;
     gameState.daily_tracker.earned_today = 0;
     gameState.customers = [];
+    gameState.winterAbandonTimer = 0; // Resetear timer de negligencia
     saveGame();
     document.getElementById('day-end-modal').classList.add('hidden');
     updateUI();
@@ -268,5 +277,95 @@ function checkQuotaStatus() {
     else { el.textContent = `$${gameState.daily_tracker.earned_today.toFixed(2)} / $30.00`; el.style.color="#fff"; }
 }
 
-function gameOver(reason) { alert("FIN DEL JUEGO\n"+reason); clearSave(); location.reload(); }
+// --- GAME OVERS ---
+function triggerGameOver(type) {
+    clearInterval(gameInterval);
+    clearInterval(winterCheckInterval);
+    if(inactivityTimer) clearTimeout(inactivityTimer);
+    gameState.shopStatus = 'closed';
+
+    let title = "GAME OVER";
+    let message = "";
+    let subtitle = "";
+    let color = "var(--accent-red)";
+
+    switch(type) {
+        case 'bancarrota':
+            title = "BANCARROTA";
+            message = "Tienes demasiados lobitos para tu presupuesto.\nNo puedes mantenerlos a todos.";
+            subtitle = "El Game Over del Irresponsable";
+            break;
+            
+        case 'fatality':
+            title = "FATALITY DEL HAMBRIENTO";
+            message = "Has recibido 10 mordiscos en un plazo demasiado corto.\nLa cantidad de sangrado terminó por desmayarte.";
+            subtitle = "El Game Over del Descuidado";
+            break;
+            
+        case 'accidente':
+            title = "ACCIDENTE FATAL";
+            message = "Has dejado esperando a un Winteruff por más de 3 minutos.\nEl pobre se desmayó... y fuiste acusado injustamente de maltrato animal.";
+            subtitle = "El Game Over del Negligente";
+            break;
+            
+        case 'siesta':
+            title = "LA ÚLTIMA SIESTA";
+            message = "Has estado esperando demasiado tiempo en tu puesto...\nTe despertaron solo para mostrarte el documento de clausura.";
+            subtitle = "El Game Over del Emprendedor Somnoliento";
+            color = "#9c27b0";
+            break;
+    }
+
+    const modal = document.getElementById('message-modal');
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-title').style.color = color;
+    document.getElementById('modal-body').innerText = `${message}\n\n---\n${subtitle}`;
+    
+    const btnClose = document.getElementById('btn-close-modal');
+    btnClose.textContent = "REINICIAR PARTIDA";
+    btnClose.onclick = () => {
+        clearSave();
+        location.reload();
+    };
+
+    modal.classList.remove('hidden');
+}
+
+// --- VIGILANTE DE INACTIVIDAD ---
+function resetInactivityTimer() {
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    if (gameState && gameState.shopStatus === 'open') {
+        inactivityTimer = setTimeout(() => {
+            triggerGameOver('siesta');
+        }, INACTIVITY_LIMIT);
+    }
+}
+
+// --- CHEQUEO DE WINTERUFFS ABANDONADOS ---
+function startWinterChecks() {
+    if(winterCheckInterval) clearInterval(winterCheckInterval);
+    
+    winterCheckInterval = setInterval(() => {
+        if(gameState.shopStatus !== 'open') return;
+
+        let hasWaitingWinteruff = false;
+        gameState.customers.forEach(cust => {
+            if(cust.state === 'waiting_in_queue' && cust.hasWinter) {
+                hasWaitingWinteruff = true;
+            }
+        });
+
+        if(hasWaitingWinteruff) {
+            gameState.winterAbandonTimer += 1;
+        } else {
+            gameState.winterAbandonTimer = 0; // Reset si no hay nadie esperando
+        }
+
+        if(gameState.winterAbandonTimer >= 180) { // 3 minutos
+            triggerGameOver('accidente');
+        }
+
+    }, 1000);
+}
+
 function showErrorToast(msg) { console.error(msg); showToast(msg); }
