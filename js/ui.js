@@ -1,4 +1,4 @@
-// js/ui.js - V4 FINAL
+// js/ui.js - V4.2 FINALES BUENOS
 
 function initStoreGrid() { /* No hace nada */ }
 
@@ -190,11 +190,22 @@ function showWinteruffPayModal(cust) {
 function processPayment(cid, amount) {
     const cust = gameState.customers.find(c=>c.id==cid);
     if(!cust) return;
+    
     gameState.budget += amount;
     gameState.daily_tracker.earned_today += amount;
     gameState.stats.total_sales_lifetime += cust.cart.length;
+
+    // --- ACTUALIZAR STATS PARA FINALES ---
+    cust.cart.forEach(item => {
+        if (item.type === 'winter') {
+            gameState.stats.winter_sold_fresh++; 
+        } else if (item.type !== 'white') {
+            gameState.stats.has_sold_other_types = true;
+        }
+    });
+    // -------------------------------------
+
     cust.state = 'leaving_happy'; cust.progress = 100;
-    
     hideAllModals();
     updateUI(); renderCustomers();
 }
@@ -254,13 +265,12 @@ function failDanger(reason) {
     document.getElementById('interaction-overlay').classList.add('hidden');
     document.getElementById('pet-bar-container').classList.add('hidden');
     
-    // Lógica de Mordiscos
     const now = Date.now();
     gameState.biteCounter++;
     if (now - gameState.lastBiteTime > 30000) { gameState.biteCounter = 1; }
     gameState.lastBiteTime = now;
 
-    showToast(`❌ ${reason} (Mordiscos: ${gameState.biteCounter}/10)`);
+    showToast(` ${reason} (Mordiscos: ${gameState.biteCounter}/10)`);
 
     if (currentDangerCust) {
         currentDangerCust.state = 'leaving_angry'; currentDangerCust.progress = 100;
