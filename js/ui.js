@@ -7,31 +7,49 @@ function initStoreGrid() {
 function updateStoreMapView() {
     if (!gameState) return;
 
-    const shelvesGrid = document.getElementById('shelves-grid');
-    if (!shelvesGrid) return;
+    const shelvesGridWhite = document.getElementById('shelves-grid-white');
+    const shelvesGridBrown = document.getElementById('shelves-grid-brown');
+    
+    if (!shelvesGridWhite || !shelvesGridBrown) return;
 
-    shelvesGrid.innerHTML = '';
+    // Limpiar
+    shelvesGridWhite.innerHTML = '';
+    shelvesGridBrown.innerHTML = '';
 
+    // Config White Grid (24 slots)
     const maxVisibleSlots = 24; 
-    const currentStock = gameState.inventory.white_wolfie;
-    const filledSlotsCount = Math.min(currentStock, maxVisibleSlots);
+    const currentStockWhite = gameState.inventory.white_wolfie;
+    const filledSlotsCountWhite = Math.min(currentStockWhite, maxVisibleSlots);
 
     for (let i = 0; i < maxVisibleSlots; i++) {
         const slot = document.createElement('div');
         slot.classList.add('slot');
-        
-        if (i < filledSlotsCount) {
+        if (i < filledSlotsCountWhite) {
             slot.classList.add('filled');
         } else {
             slot.classList.add('empty');
         }
-        
-        shelvesGrid.appendChild(slot);
+        shelvesGridWhite.appendChild(slot);
+    }
+
+    // Config Brown Grid (24 slots)
+    const currentStockBrown = gameState.inventory.brown_wolfie;
+    const filledSlotsCountBrown = Math.min(currentStockBrown, maxVisibleSlots);
+
+    for (let i = 0; i < maxVisibleSlots; i++) {
+        const slot = document.createElement('div');
+        slot.classList.add('slot');
+        if (i < filledSlotsCountBrown) {
+            slot.classList.add('filled');
+        } else {
+            slot.classList.add('empty');
+        }
+        shelvesGridBrown.appendChild(slot);
     }
 
     const displayTotal = document.getElementById('display-total-stock-map');
     if (displayTotal) {
-        displayTotal.textContent = `${currentStock}`;
+        displayTotal.textContent = `${currentStockWhite + currentStockBrown}`;
     }
 }
 
@@ -73,8 +91,9 @@ function renderCustomers() {
 
             case 'shopping':
                 blob.classList.add('shopping');
-                leftPercent = 30 + (Math.random() * 10); 
-                topOffset = 30 + (Math.random() * 40); 
+                // Posición fija relativa al progreso para evitar jitter extremo
+                leftPercent = 30 + (cust.progress % 20); 
+                topOffset = 30 + (cust.id % 40); 
                 break;
 
             case 'going_to_checkout':
@@ -145,10 +164,10 @@ function updateUI() {
     updateStoreMapView();
     renderCustomers();
 
-    // Alerta bajo stock
+    // Alerta bajo stock (combinado o separado? Hagámoslo separado simple)
     const lowStockAlert = document.getElementById('low-stock-alert');
     if (lowStockAlert) {
-        if (gameState.inventory.white_wolfie < 12) {
+        if (gameState.inventory.white_wolfie < 12 || gameState.inventory.brown_wolfie < 6) {
             lowStockAlert.classList.remove('hidden');
         } else {
             lowStockAlert.classList.add('hidden');
@@ -185,7 +204,7 @@ function showQuickPayModal(customer) {
 
     nameSpan.textContent = customer.name;
     totalSpan.textContent = `$${total.toFixed(2)}`;
-    qtySpan.textContent = `${qty} x Lobito Básico`;
+    qtySpan.textContent = `${qty} x Lobito`;
 
     modal.dataset.currentCustomerId = customer.id;
 
@@ -195,17 +214,14 @@ function showQuickPayModal(customer) {
 }
 
 function showDangerousPayModal(customer) {
-    // Primero mostrar instrucción de seguridad
-    gameState.pendingCustomerForPayment = customer; // Guardar referencia temporal
+    gameState.pendingCustomerForPayment = customer; 
     
     const overlay = document.getElementById('interaction-overlay');
     overlay.classList.remove('hidden');
     
-    const instruction = document.getElementById('interaction-instruction');
-    instruction.innerHTML = `⚠️ ATENCIÓN: Este cliente trae un <strong>Lobito Gordinflón</strong>.<br>Para evitar mordiscos:<br>1. Presiona <kbd>G</kbd> para agarrarlo.<br>2. Mantén <kbd>P</kbd> por 4s para calmarlo.`;
-    
-    // El usuario debe completar la acción para continuar
-    // Una vez completada (en logic.js), llamaremos a processNormalPayment
+    // Iniciar modo grabbing automáticamente al mostrar el overlay
+    gameState.interactionMode = 'grabbing';
+    updateInteractionUI();
 }
 
 function hideQuickPayModal() {
@@ -235,7 +251,7 @@ function showManualCalcModal(customer) {
 
     for(const [type, data] of Object.entries(groupedItems)) {
         const li = document.createElement('li');
-        const typeName = type === 'white' ? 'Lobito Básico' : `Lobito ${type}`;
+        const typeName = type === 'white' ? 'Lobito Básico' : `Lobito ${type.charAt(0).toUpperCase() + type.slice(1)}`;
         li.innerHTML = `<span>${typeName} x${data.count}</span> <span>$${(data.count * data.price).toFixed(2)}</span>`;
         listUl.appendChild(li);
         total += data.count * data.price;
