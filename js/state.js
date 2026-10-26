@@ -2,7 +2,7 @@ const DEFAULT_STATE = {
     day: 1,
     budget: 10.00,
     inventory: {
-        white_wolfie: 24, // 2 lotes iniciales
+        white_wolfie: 24,
         brown_wolfie: 0,
         winteruff: 0
     },
@@ -11,19 +11,23 @@ const DEFAULT_STATE = {
     stats: { total_sales_lifetime: 0, days_survived: 0 },
     daily_tracker: { start_budget: 0, earned_today: 0 },
     
-    // Estado de Interacción
     interactionMode: null, 
     petTimer: 0,
     
-    // Mejoras Compradas
     upgrades: {
-        expansion1: false, // +12 slots (Total 60)
-        ac: false,         // Aire Acondicionado (12s frescura)
-        expansion2: false  // +12 slots + Cajero (Total 72)
+        expansion1: false,
+        ac: false,
+        expansion2: false
     },
     
-    // Capacidad Actual Calculada
-    currentMaxSlots: 48
+    currentMaxSlots: 48,
+    
+    // Contadores para Game Overs
+    biteCounter: 0,
+    winterAbandonTimer: 0,
+    lastBiteTime: 0
 };
 
 let gameState = null;
+let inactivityTimer = null;
+const INACTIVITY_LIMIT = 20 * 60 * 1000; // 20 minutos
