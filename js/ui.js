@@ -1,8 +1,6 @@
-// js/ui.js - VERSIÓN V3.1
+// js/ui.js - VERSIÓN V3.1 SAFE RENDER
 
-function initStoreGrid() {
-    // No hace nada específico en V3, la vista se genera dinámicamente
-}
+function initStoreGrid() {}
 
 function updateStoreMapView() {
     if (!gameState) return;
@@ -12,38 +10,30 @@ function updateStoreMapView() {
     
     if (!shelvesGridWhite || !shelvesGridBrown) return;
 
-    // Limpiar
     shelvesGridWhite.innerHTML = '';
     shelvesGridBrown.innerHTML = '';
 
-    // Config White Grid (24 slots)
     const maxVisibleSlots = 24; 
+    
+    // White
     const currentStockWhite = gameState.inventory.white_wolfie;
     const filledSlotsCountWhite = Math.min(currentStockWhite, maxVisibleSlots);
 
     for (let i = 0; i < maxVisibleSlots; i++) {
         const slot = document.createElement('div');
         slot.classList.add('slot');
-        if (i < filledSlotsCountWhite) {
-            slot.classList.add('filled');
-        } else {
-            slot.classList.add('empty');
-        }
+        if (i < filledSlotsCountWhite) slot.classList.add('filled');
         shelvesGridWhite.appendChild(slot);
     }
 
-    // Config Brown Grid (24 slots)
+    // Brown
     const currentStockBrown = gameState.inventory.brown_wolfie;
     const filledSlotsCountBrown = Math.min(currentStockBrown, maxVisibleSlots);
 
     for (let i = 0; i < maxVisibleSlots; i++) {
         const slot = document.createElement('div');
         slot.classList.add('slot');
-        if (i < filledSlotsCountBrown) {
-            slot.classList.add('filled');
-        } else {
-            slot.classList.add('empty');
-        }
+        if (i < filledSlotsCountBrown) slot.classList.add('filled');
         shelvesGridBrown.appendChild(slot);
     }
 
@@ -76,12 +66,14 @@ function renderCustomers() {
         if (cust.state === 'shopping' || cust.state === 'waiting_in_queue') {
              label += ` x${cust.desiredQty}`;
         }
-        
         nameTag.textContent = label;
         blob.appendChild(nameTag);
 
         let leftPercent = 0;
         let topOffset = 50;
+
+        // Posicionamiento estable basado en ID hash para evitar jitter aleatorio
+        const hashSeed = parseInt(cust.id.toString().slice(-2)); 
 
         switch (cust.state) {
             case 'entering':
@@ -91,32 +83,39 @@ function renderCustomers() {
 
             case 'shopping':
                 blob.classList.add('shopping');
-                // Posición fija relativa al progreso para evitar jitter extremo
-                leftPercent = 30 + (cust.progress % 20); 
-                topOffset = 30 + (cust.id % 40); 
+                // Posición fija basada en seed + pequeño offset de progreso
+                leftPercent = 30 + (hashSeed % 10); 
+                topOffset = 20 + (hashSeed % 60); 
                 break;
 
             case 'going_to_checkout':
                 blob.classList.add('going-to-checkout');
                 leftPercent = 30 + (cust.progress * 0.5);
+                topOffset = 50; // Centrado vertical
                 break;
 
             case 'waiting_in_queue':
                 blob.classList.add('waiting-in-queue');
-                leftPercent = 80 + (Math.random() * 5); 
+                leftPercent = 85; // Fijo cerca de la derecha
+                topOffset = 50;
                 
                 blob.style.cursor = 'pointer';
-                blob.onclick = () => attemptCheckout(cust.id);
+                blob.onclick = (e) => {
+                    e.stopPropagation();
+                    attemptCheckout(cust.id);
+                };
                 break;
 
             case 'leaving_happy':
                 blob.classList.add('leaving-happy');
-                leftPercent = 80 + ((100 - cust.progress) * 0.2); 
+                leftPercent = 85 + ((100 - cust.progress) * 0.2); 
+                topOffset = 50;
                 break;
 
             case 'leaving_angry':
                 blob.classList.add('leaving-angry');
-                leftPercent = 80 + ((100 - cust.progress) * 0.2);
+                leftPercent = 85 + ((100 - cust.progress) * 0.2);
+                topOffset = 50;
                 break;
         }
 
@@ -136,7 +135,10 @@ function renderCustomers() {
                 <span>${cust.name.split(' ')[0]}</span>
                 <span class="price">$${totalPrice.toFixed(2)} (${totalItems})</span>
             `;
-            listItem.onclick = () => attemptCheckout(cust.id); 
+            listItem.onclick = (e) => {
+                e.stopPropagation();
+                attemptCheckout(cust.id); 
+            };
             
             queueContainer.appendChild(listItem);
         }
@@ -146,8 +148,11 @@ function renderCustomers() {
 function updateUI() {
     if (!gameState) return;
 
-    document.getElementById('display-day').textContent = gameState.day;
-    document.getElementById('display-budget').textContent = `$${gameState.budget.toFixed(2)}`;
+    const elDay = document.getElementById('display-day');
+    if(elDay) elDay.textContent = gameState.day;
+
+    const elBudget = document.getElementById('display-budget');
+    if(elBudget) elBudget.textContent = `$${gameState.budget.toFixed(2)}`;
     
     const statusEl = document.getElementById('display-shop-status');
     if (statusEl) {
@@ -164,7 +169,6 @@ function updateUI() {
     updateStoreMapView();
     renderCustomers();
 
-    // Alerta bajo stock (combinado o separado? Hagámoslo separado simple)
     const lowStockAlert = document.getElementById('low-stock-alert');
     if (lowStockAlert) {
         if (gameState.inventory.white_wolfie < 12 || gameState.inventory.brown_wolfie < 6) {
@@ -188,7 +192,7 @@ function checkQuotaStatus() {
     }
 }
 
-// --- MODALES DE PAGO ---
+// ... (Resto de funciones modales igual que antes, son seguras) ...
 
 function showQuickPayModal(customer) {
     const modal = document.getElementById('quick-pay-modal');
@@ -202,13 +206,15 @@ function showQuickPayModal(customer) {
     const total = customer.cart.reduce((sum, item) => sum + item.price, 0);
     const qty = customer.cart.length;
 
-    nameSpan.textContent = customer.name;
-    totalSpan.textContent = `$${total.toFixed(2)}`;
-    qtySpan.textContent = `${qty} x Lobito`;
+    if(nameSpan) nameSpan.textContent = customer.name;
+    if(totalSpan) totalSpan.textContent = `$${total.toFixed(2)}`;
+    if(qtySpan) qtySpan.textContent = `${qty} x Lobito`;
 
     modal.dataset.currentCustomerId = customer.id;
 
-    confirmBtn.onclick = () => processQuickPayment(customer.id, total);
+    if(confirmBtn) {
+        confirmBtn.onclick = () => processQuickPayment(customer.id, total);
+    }
 
     modal.classList.remove('hidden');
 }
@@ -217,15 +223,15 @@ function showDangerousPayModal(customer) {
     gameState.pendingCustomerForPayment = customer; 
     
     const overlay = document.getElementById('interaction-overlay');
-    overlay.classList.remove('hidden');
+    if(overlay) overlay.classList.remove('hidden');
     
-    // Iniciar modo grabbing automáticamente al mostrar el overlay
     gameState.interactionMode = 'grabbing';
     updateInteractionUI();
 }
 
 function hideQuickPayModal() {
-    document.getElementById('quick-pay-modal').classList.add('hidden');
+    const m = document.getElementById('quick-pay-modal');
+    if(m) m.classList.add('hidden');
 }
 
 function showManualCalcModal(customer) {
@@ -240,7 +246,7 @@ function showManualCalcModal(customer) {
     const input = document.getElementById('pay-input-amount');
     const errorMsg = document.getElementById('pay-error-msg');
 
-    listUl.innerHTML = '';
+    if(listUl) listUl.innerHTML = '';
     let total = 0;
     
     const groupedItems = {};
@@ -249,18 +255,22 @@ function showManualCalcModal(customer) {
         groupedItems[item.type].count++;
     });
 
-    for(const [type, data] of Object.entries(groupedItems)) {
-        const li = document.createElement('li');
-        const typeName = type === 'white' ? 'Lobito Básico' : `Lobito ${type.charAt(0).toUpperCase() + type.slice(1)}`;
-        li.innerHTML = `<span>${typeName} x${data.count}</span> <span>$${(data.count * data.price).toFixed(2)}</span>`;
-        listUl.appendChild(li);
-        total += data.count * data.price;
+    if(listUl) {
+        for(const [type, data] of Object.entries(groupedItems)) {
+            const li = document.createElement('li');
+            const typeName = type === 'white' ? 'Lobito Básico' : `Lobito ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+            li.innerHTML = `<span>${typeName} x${data.count}</span> <span>$${(data.count * data.price).toFixed(2)}</span>`;
+            listUl.appendChild(li);
+            total += data.count * data.price;
+        }
     }
 
-    totalStrong.textContent = `$${total.toFixed(2)}`;
-    input.value = '';
-    input.focus();
-    errorMsg.textContent = '';
+    if(totalStrong) totalStrong.textContent = `$${total.toFixed(2)}`;
+    if(input) {
+        input.value = '';
+        input.focus();
+    }
+    if(errorMsg) errorMsg.textContent = '';
     
     modal.dataset.currentCustomerId = customer.id;
     modal.classList.remove('hidden');
@@ -281,13 +291,16 @@ function showError(msg) {
 
 function showToast(message) {
     console.log(message);
+    // Opcional: Implementar toast visual aquí si quieres feedback en pantalla
 }
 
 function showModal(title, body) {
     const modal = document.getElementById('message-modal');
     if(!modal) return;
-    document.getElementById('modal-title').textContent = title;
-    document.getElementById('modal-body').innerText = body; 
+    const t = document.getElementById('modal-title');
+    const b = document.getElementById('modal-body');
+    if(t) t.textContent = title;
+    if(b) b.innerText = body; 
     modal.classList.remove('hidden');
 }
 
