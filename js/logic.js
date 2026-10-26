@@ -1,4 +1,4 @@
-// js/logic.js - VERSIÓN V3.1 SIMULACIÓN ACTIVA + CARGA MÚLTIPLE
+// js/logic.js - VERSIÓN V3.1 FIX SPAWN & MOBILE READY
 
 // --- CONSTANTES ECONÓMICAS Y DE CONFIGURACIÓN ---
 const COST_LOTE_WHITE = 5.00;
@@ -6,18 +6,22 @@ const UNITS_PER_LOTE_WHITE = 12;
 const PRICE_WHITE_WOLFIE = 1.00; 
 
 const COST_LOTE_BROWN = 12.00;
-const UNITS_PER_LOTE_BROWN = 6; // Los gordinflones son grandes, vienen menos por lote
+const UNITS_PER_LOTE_BROWN = 6;
 const PRICE_BROWN_WOLFIE = 2.50;
 
 const PRESERVATION_COST_PER_UNIT = 0.50;
-const PRESERVATION_COST_BROWN = 2.00; // Más caro de mantener
+const PRESERVATION_COST_BROWN = 2.00;
 
 const DAILY_QUOTA_GOAL = 30.00;
 const MAX_CUSTOMERS_IN_STORE = 8; 
 const SPAWN_RATE_CHANCE = 0.15;   
-const MAX_CAPACITY_VISUAL = 72; // Capacidad total combinada o individual? Usaremos límite global simple para MVP
+const MAX_CAPACITY_VISUAL = 72;
 
 let gameInterval = null; 
+
+// Listas simplificadas
+const FIRST_NAMES = ["Alejandro", "Sofia", "Mateo", "Valentina", "Diego", "Camila", "Lucas", "Emma"];
+const LAST_NAMES = ["García", "Rodríguez", "Martínez", "López", "Hernández", "Torres", "Flores", "Rivera"];
 
 // --- INICIALIZACIÓN ---
 
@@ -30,6 +34,8 @@ function initNewGame() {
     gameState.daily_tracker.earned_today = 0;
     gameState.customers = [];
     gameState.shopStatus = 'closed';
+    gameState.interactionMode = null;
+    gameState.pendingCustomerForPayment = null;
 
     updateUI();
     showModal("Bienvenido", "Tu tienda ha sido inaugurada.\nTienes 24 Lobitos Básicos.\nPresiona 'ABRIR TIENDA' para comenzar.");
@@ -51,48 +57,76 @@ function openShop() {
     gameState.shopStatus = 'open';
     gameState.customers = []; 
     
-    document.getElementById('btn-toggle-shop').textContent = "CERRAR TIENDA";
-    document.getElementById('btn-toggle-shop').classList.remove('success');
-    document.getElementById('btn-toggle-shop').classList.add('danger');
-    document.getElementById('display-shop-status').textContent = "ABIERTA";
-    document.getElementById('display-shop-status').className = "stat-item status-open";
+    // Actualizar UI inmediata
+    const btnToggle = document.getElementById('btn-toggle-shop');
+    if(btnToggle) {
+        btnToggle.textContent = "CERRAR TIENDA";
+        btnToggle.classList.remove('success');
+        btnToggle.classList.add('danger');
+    }
+    
+    const statusEl = document.getElementById('display-shop-status');
+    if(statusEl) {
+        statusEl.textContent = "ABIERTA";
+        statusEl.className = "stat-item status-open";
+    }
 
+    // Iniciar Loop Principal
+    if (gameInterval) clearInterval(gameInterval);
     gameInterval = setInterval(gameTick, 500);
     
-    spawnCustomer();
-    spawnCustomer();
+    // Spawn inicial garantizado
+    setTimeout(() => {
+        if(gameState.shopStatus === 'open') {
+            spawnCustomer();
+            spawnCustomer();
+        }
+    }, 100);
 }
 
 function closeShop() {
     if (gameState.shopStatus === 'closed') return;
 
-    clearInterval(gameInterval);
-    gameInterval = null;
+    if (gameInterval) {
+        clearInterval(gameInterval);
+        gameInterval = null;
+    }
+    
     gameState.shopStatus = 'closed';
     gameState.customers = []; 
 
     processEndOfDay();
     
-    document.getElementById('btn-toggle-shop').textContent = "ABRIR TIENDA";
-    document.getElementById('btn-toggle-shop').classList.remove('danger');
-    document.getElementById('btn-toggle-shop').classList.add('success');
-    document.getElementById('display-shop-status').textContent = "CERRADA";
-    document.getElementById('display-shop-status').className = "stat-item status-closed";
+    const btnToggle = document.getElementById('btn-toggle-shop');
+    if(btnToggle) {
+        btnToggle.textContent = "ABRIR TIENDA";
+        btnToggle.classList.remove('danger');
+        btnToggle.classList.add('success');
+    }
+    
+    const statusEl = document.getElementById('display-shop-status');
+    if(statusEl) {
+        statusEl.textContent = "CERRADA";
+        statusEl.className = "stat-item status-closed";
+    }
 }
 
 // --- LÓGICA DE SIMULACIÓN (EL TICK) ---
 
 function spawnCustomer() {
+    // Validación de estado
+    if (!gameState || gameState.shopStatus !== 'open') return;
+    if (gameState.customers.length >= MAX_CUSTOMERS_IN_STORE) return;
+
     const firstName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
     const lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
     
     let desiredType = 'white';
-    let quantity = Math.floor(Math.random() * 4) + 1; // 1 a 4 unidades
+    let quantity = Math.floor(Math.random() * 4) + 1;
     
-    // Si hay stock de marrones, hay un 30% de probabilidad de querer uno
+    // Lógica de preferencia Brown
     if (gameState.inventory.brown_wolfie > 0 && Math.random() < 0.3) {
         desiredType = 'brown';
-        // Los gordinflones son caros/peligrosos, la gente compra menos cantidad (1-2)
         quantity = Math.floor(Math.random() * 2) + 1; 
     }
 
@@ -108,41 +142,44 @@ function spawnCustomer() {
     };
     
     gameState.customers.push(newCustomer);
+    console.log(`Spawned: ${newCustomer.name} wants ${quantity}x ${desiredType}`);
 }
 
 function gameTick() {
-    if (gameState.shopStatus !== 'open') return;
+    if (!gameState || gameState.shopStatus !== 'open') return;
 
     let anyActionTaken = false;
 
-    // Spawn aleatorio
-    if (Math.random() < SPAWN_RATE_CHANCE && gameState.customers.length < MAX_CUSTOMERS_IN_STORE) {
+    // 1. Intentar Spawn Aleatorio
+    if (Math.random() < SPAWN_RATE_CHANCE) {
         spawnCustomer();
         anyActionTaken = true;
     }
 
-    // Procesar clientes existentes
+    // 2. Procesar Clientes Existentes
+    // Iteramos hacia atrás para poder eliminar elementos sin romper índices
     for (let i = gameState.customers.length - 1; i >= 0; i--) {
         const cust = gameState.customers[i];
         
         switch (cust.state) {
             case 'entering':
-                cust.progress += 5;
+                cust.progress += 5; // Velocidad de entrada
                 if (cust.progress >= 100) {
                     cust.state = 'shopping';
                     cust.progress = 0;
                     cust.waitTimer = 0;
+                    anyActionTaken = true;
                 }
                 break;
 
             case 'shopping':
                 cust.waitTimer++; 
+                // Tiempo de espera antes de decidir compra (simula mirar estantes)
                 if (cust.waitTimer > 2) { 
                     
                     const typeToTake = cust.desiredType;
                     const qtyWanted = cust.desiredQty;
                     
-                    // Verificar disponibilidad específica
                     let availableStock = 0;
                     if (typeToTake === 'white') availableStock = gameState.inventory.white_wolfie;
                     if (typeToTake === 'brown') availableStock = gameState.inventory.brown_wolfie;
@@ -178,41 +215,43 @@ function gameTick() {
                         anyActionTaken = true;
                         
                     } else {
-                        // Sin stock
+                        // Sin stock -> Se va enfadado
                         cust.state = 'leaving_angry';
-                        cust.progress = 100;
+                        cust.progress = 0; // Reiniciamos progreso para animación de salida
                         anyActionTaken = true;
                     }
                 }
                 break;
 
             case 'going_to_checkout':
-                cust.progress += 10;
+                cust.progress += 10; // Velocidad hacia caja
                 if (cust.progress >= 100) {
                     cust.state = 'waiting_in_queue';
                     cust.progress = 0;
+                    anyActionTaken = true;
                 }
                 break;
 
             case 'waiting_in_queue':
-                // Espera paciencia infinita por ahora, o timeout largo
+                // Paciencia infinita por ahora. El jugador debe actuar.
                 break;
 
             case 'leaving_happy':
             case 'leaving_angry':
-                cust.progress += 10;
+                cust.progress += 10; // Animación de salida
                 if (cust.progress >= 100) {
-                    gameState.customers.splice(i, 1);
+                    gameState.customers.splice(i, 1); // Eliminar del array
                     anyActionTaken = true;
                 }
                 break;
         }
     }
 
-    if (anyActionTaken || true) { // Siempre renderizar para suavidad
-        renderCustomers();
-        updateStoreMapView();
-    }
+    // Renderizar SIEMPRE si hubo cambios o siempre para suavidad
+    // Nota: En móvil, renderizar cada 500ms es barato.
+    renderCustomers();
+    updateStoreMapView();
+    updateUI(); // Actualiza textos de dinero/meta
 }
 
 // --- INTERACCIÓN DEL JUGADOR (COBRO) ---
@@ -230,13 +269,12 @@ function attemptCheckout(customerId) {
 
     if (customer.state !== 'waiting_in_queue') return;
 
-    // NUEVO: Verificar si tiene un Gordinflón (brown)
+    // VERIFICACIÓN DE PELIGRO (Brown Wolfies)
     const hasBrown = customer.cart.some(item => item.type === 'brown');
     
     if (hasBrown) {
-        // Activar la interacción peligrosa ANTES de permitir pago
         showDangerousPayModal(customer);
-        return; // Salir aquí, no abrir modal de pago normal todavía
+        return; // Detener flujo normal
     }
 
     const complexity = analyzeCartComplexity(customer);
@@ -257,7 +295,7 @@ function processQuickPayment(customerId, expectedAmount) {
     gameState.stats.total_sales_lifetime += customer.cart.length;
     
     customer.state = 'leaving_happy';
-    customer.progress = 100;
+    customer.progress = 0; // Reset para animación
 
     hideQuickPayModal();
     updateUI();
@@ -277,17 +315,19 @@ function confirmPayment(inputAmount, customerId) {
         return;
     }
 
-    if (paid === expectedTotal) {
+    // Tolerancia pequeña para decimales flotantes (ej 2.50 vs 2.49999)
+    if (Math.abs(paid - expectedTotal) < 0.01) {
         gameState.budget += paid;
         gameState.daily_tracker.earned_today += paid;
         gameState.stats.total_sales_lifetime += customer.cart.length;
         
         customer.state = 'leaving_happy';
-        customer.progress = 100;
+        customer.progress = 0;
         
         hidePaymentModal();
         updateUI();
         renderCustomers();
+        showToast(`✅ Pago Confirmado: $${paid.toFixed(2)}`);
     } else {
         showError(`Monto incorrecto. Esperado: $${expectedTotal.toFixed(2)}. Recibido: $${paid.toFixed(2)}.`);
     }
@@ -308,8 +348,7 @@ function buySingleLoteWhite() {
 
 function fillMaxStockWhite() {
     const currentStock = gameState.inventory.white_wolfie;
-    // Límite arbitrario para blancos, digamos 48
-    const maxCapacity = 48; 
+    const maxCapacity = 48; // Límite visual/blanco
     
     if (currentStock >= maxCapacity) {
         showToast("Almacén Blanco lleno.");
@@ -323,7 +362,6 @@ function fillMaxStockWhite() {
     if (gameState.budget >= totalCost) {
         gameState.budget -= totalCost;
         gameState.inventory.white_wolfie += (lotsNeeded * UNITS_PER_LOTE_WHITE);
-        
         updateUI();
         showToast(`Almacén Blanco repleto.`);
     } else {
@@ -344,8 +382,7 @@ function buySingleLoteBrown() {
 
 function fillMaxStockBrown() {
     const currentStock = gameState.inventory.brown_wolfie;
-    // Límite arbitrario para marrones, digamos 24
-    const maxCapacity = 24; 
+    const maxCapacity = 24; // Límite visual/marrón
     
     if (currentStock >= maxCapacity) {
         showToast("Almacén Marrón lleno.");
@@ -359,7 +396,6 @@ function fillMaxStockBrown() {
     if (gameState.budget >= totalCost) {
         gameState.budget -= totalCost;
         gameState.inventory.brown_wolfie += (lotsNeeded * UNITS_PER_LOTE_BROWN);
-        
         updateUI();
         showToast(`Almacén Marrón repleto.`);
     } else {
@@ -383,20 +419,22 @@ function processEndOfDay() {
     }
 
     const reportBody = document.getElementById('day-report-body');
-    let msg = `VENTAS BRUTAS HOY: $${gameState.daily_tracker.earned_today.toFixed(2)}\n`;
-    msg += `STOCK BLANCO RESTANTE: ${whiteLeft} uds (-$${preservationWhite.toFixed(2)})\n`;
-    msg += `STOCK MARRÓN RESTANTE: ${brownLeft} uds (-$${preservationBrown.toFixed(2)})\n`;
-    msg += `----------------------------------\n`;
-    msg += `BALANCE FINAL: $${gameState.budget.toFixed(2)}\n\n`;
-    
-    if (gameState.daily_tracker.earned_today >= DAILY_QUOTA_GOAL) {
-        msg += "✅ META DIARIA SUPERADA.";
-    } else {
-        msg += "⚠️ NO SE CUMPLIÓ LA META ($30.00).";
+    if(reportBody) {
+        let msg = `VENTAS BRUTAS HOY: $${gameState.daily_tracker.earned_today.toFixed(2)}\n`;
+        msg += `STOCK BLANCO RESTANTE: ${whiteLeft} uds (-$${preservationWhite.toFixed(2)})\n`;
+        msg += `STOCK MARRÓN RESTANTE: ${brownLeft} uds (-$${preservationBrown.toFixed(2)})\n`;
+        msg += `----------------------------------\n`;
+        msg += `BALANCE FINAL: $${gameState.budget.toFixed(2)}\n\n`;
+        
+        if (gameState.daily_tracker.earned_today >= DAILY_QUOTA_GOAL) {
+            msg += "✅ META DIARIA SUPERADA.";
+        } else {
+            msg += "⚠️ NO SE CUMPLIÓ LA META ($30.00).";
+        }
+        
+        reportBody.textContent = msg;
+        document.getElementById('day-end-modal').classList.remove('hidden');
     }
-    
-    reportBody.textContent = msg;
-    document.getElementById('day-end-modal').classList.remove('hidden');
 }
 
 function nextDay() {
@@ -404,11 +442,21 @@ function nextDay() {
     gameState.daily_tracker.start_budget = gameState.budget;
     gameState.daily_tracker.earned_today = 0;
     gameState.customers = []; 
+    gameState.shopStatus = 'closed'; // Forzar cierre lógico
     
     saveGame();
     
-    document.getElementById('day-end-modal').classList.add('hidden');
+    const dayEndModal = document.getElementById('day-end-modal');
+    if(dayEndModal) dayEndModal.classList.add('hidden');
+    
     updateUI();
+    
+    // Resetear botón de tienda
+    const btnToggle = document.getElementById('btn-toggle-shop');
+    if(btnToggle) {
+        btnToggle.textContent = "ABRIR TIENDA";
+        btnToggle.className = "btn success large";
+    }
 }
 
 function checkQuotaStatus() {
@@ -435,20 +483,18 @@ function showErrorToast(msg) {
     showToast(msg);
 }
 
-// Constantes nuevas
+// --- MECÁNICA DE PELIGRO (QTE) ---
+
 const PET_DURATION_REQUIRED = 4; // Segundos necesarios
 
-/**
- * Función llamada desde main.js cuando se presiona una tecla
- */
 function handleKeyDown(key) {
-    if (gameState.shopStatus !== 'open') return; 
+    if (!gameState || gameState.shopStatus !== 'open') return; 
 
     const k = key.toLowerCase();
 
-    // 1. Intentar Agarrar (Tecla G)
-    if (k === 'g') {
-        if (gameState.interactionMode === 'grabbing') {
+    // Solo interactuar si estamos en modo grabbing o petting
+    if (gameState.interactionMode === 'grabbing') {
+        if (k === 'g') {
              gameState.interactionMode = 'petting';
              gameState.petTimer = 0; 
              startPettingTimer();
@@ -458,14 +504,15 @@ function handleKeyDown(key) {
 }
 
 function handleKeyUp(key) {
+    if (!gameState) return;
     const k = key.toLowerCase();
     
-    // Si sueltas P antes de completar 4 segundos, fallas
+    // Si sueltas P durante el acariciado -> Falla
     if (k === 'p' && gameState.interactionMode === 'petting') {
         failInteraction("Soltaste demasiado pronto. ¡Mordisco!");
     }
     
-    // Si sueltas G mientras acaricias, también falla
+    // Si sueltas G durante el acariciado -> Falla (perdiste control)
     if (k === 'g' && gameState.interactionMode === 'petting') {
          failInteraction("Perdiste el agarre. ¡Mordisco!");
     }
@@ -476,6 +523,11 @@ let petInterval = null;
 function startPettingTimer() {
     clearInterval(petInterval);
     petInterval = setInterval(() => {
+        if (!gameState || gameState.interactionMode !== 'petting') {
+            clearInterval(petInterval);
+            return;
+        }
+        
         gameState.petTimer += 0.1; 
         
         const progressBar = document.getElementById('pet-progress-bar');
@@ -500,6 +552,7 @@ function succeedInteraction() {
     
     const pendingCustomer = gameState.pendingCustomerForPayment;
     if (pendingCustomer) {
+        // Reabrir modal de pago correspondiente
         const complexity = analyzeCartComplexity(pendingCustomer);
         if (complexity === 'simple') showQuickPayModal(pendingCustomer);
         else showManualCalcModal(pendingCustomer);
@@ -520,7 +573,7 @@ function failInteraction(reason) {
         const idx = gameState.customers.findIndex(c => c.id == gameState.pendingCustomerForPayment.id);
         if (idx !== -1) {
             gameState.customers[idx].state = 'leaving_angry';
-            gameState.customers[idx].progress = 100;
+            gameState.customers[idx].progress = 0;
         }
         gameState.pendingCustomerForPayment = null;
     }
@@ -539,12 +592,14 @@ function updateInteractionUI() {
         const instruction = document.getElementById('interaction-instruction');
         const barContainer = document.getElementById('pet-bar-container');
         
-        if (gameState.interactionMode === 'grabbing') {
-            instruction.innerHTML = `⚠️ ATENCIÓN: Este cliente trae un <strong>Lobito Gordinflón</strong>.<br>Para evitar mordiscos:<br>1. Presiona <kbd>G</kbd> para agarrarlo.<br>2. Mantén <kbd>P</kbd> por 4s para calmarlo.`;
-            barContainer.classList.add('hidden');
-        } else if (gameState.interactionMode === 'petting') {
-            instruction.textContent = "MAINTÉN [P] POR 4 SEGUNDOS PARA ACARICIARLO";
-            barContainer.classList.remove('hidden');
+        if (instruction) {
+            if (gameState.interactionMode === 'grabbing') {
+                instruction.innerHTML = `⚠️ ATENCIÓN: Este cliente trae un <strong>Lobito Gordinflón</strong>.<br>Para evitar mordiscos:<br>1. Presiona <kbd>G</kbd> para agarrarlo.<br>2. Mantén <kbd>P</kbd> por 4s para calmarlo.`;
+                if(barContainer) barContainer.classList.add('hidden');
+            } else if (gameState.interactionMode === 'petting') {
+                instruction.textContent = "MAINTÉN [P] POR 4 SEGUNDOS PARA ACARICIARLO";
+                if(barContainer) barContainer.classList.remove('hidden');
+            }
         }
     } else {
         overlay.classList.add('hidden');
