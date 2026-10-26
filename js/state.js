@@ -8,7 +8,12 @@ const DEFAULT_STATE = {
     },
     shopStatus: 'closed',
     customers: [],
-    stats: { total_sales_lifetime: 0, days_survived: 0 },
+    stats: { 
+        total_sales_lifetime: 0, 
+        days_survived: 0,
+        winter_sold_fresh: 0,      // Para el final de Hielo
+        has_sold_other_types: false // Para el final Nah I'd Win
+    },
     daily_tracker: { start_budget: 0, earned_today: 0 },
     
     interactionMode: null, 
@@ -22,7 +27,6 @@ const DEFAULT_STATE = {
     
     currentMaxSlots: 48,
     
-    // Contadores para Game Overs
     biteCounter: 0,
     winterAbandonTimer: 0,
     lastBiteTime: 0
@@ -30,4 +34,4 @@ const DEFAULT_STATE = {
 
 let gameState = null;
 let inactivityTimer = null;
-const INACTIVITY_LIMIT = 20 * 60 * 1000; // 20 minutos
+const INACTIVITY_LIMIT = 20 * 60 * 1000;
