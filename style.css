@@ -5,7 +5,9 @@
     --accent-green: #4caf50;
     --accent-red: #f44336;
     --accent-blue: #2196f3;
+    --accent-orange: #ff9800; /* Para Warning/Brown */
     --white-box: #ffffff;
+    --brown-box: #8d6e63;     /* Color para lobitos marrones */
     --border-radius: 8px;
     --aisle-bg: #252528;
 }
@@ -60,7 +62,7 @@ body {
     display: grid;
     grid-template-columns: 1fr 2.5fr 1fr; 
     gap: 10px;
-    height: 400px;
+    height: 450px; /* Un poco más alto para caber 2 secciones de estantes */
     background: #111;
     padding: 10px;
     border-radius: var(--border-radius);
@@ -77,17 +79,18 @@ body {
 .shelves-area h3, .aisle-area h3, .checkout-area h3 {
     font-size: 0.8em;
     color: #888;
-    margin-bottom: 10px;
+    margin-bottom: 5px;
     text-align: center;
 }
 
-/* Estantes */
+/* Estantes Divididos */
 .shelves-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(6, 1fr);
+    grid-template-columns: repeat(6, 1fr); /* 6 columnas x 4 filas = 24 slots por sección */
+    grid-template-rows: repeat(4, 1fr);
     gap: 2px;
     flex-grow: 1;
+    margin-bottom: 5px;
 }
 
 .slot {
@@ -101,8 +104,14 @@ body {
     box-shadow: inset 0 0 3px rgba(0,0,0,0.1);
 }
 
+/* Estilo específico para estantes de Gordinflones */
+.brown-theme .slot.filled {
+    background-color: var(--brown-box);
+    box-shadow: inset 0 0 3px rgba(0,0,0,0.2);
+}
+
 .stock-counter {
-    margin-top: 5px;
+    margin-top: auto;
     font-size: 0.8em;
     text-align: center;
     color: #aaa;
@@ -229,6 +238,7 @@ body {
 .btn.primary { background: var(--accent-blue); color: white; }
 .btn.success { background: var(--accent-green); color: white; }
 .btn.danger { background: var(--accent-red); color: white; }
+.btn.warning { background: var(--accent-orange); color: white; } /* Nuevo botón naranja */
 .btn.ghost { background: transparent; border: 1px solid #555; color: #aaa; }
 .btn.large { padding: 15px; font-size: 1.1em; }
 .btn.small { padding: 8px; font-size: 0.85em; }
@@ -251,12 +261,19 @@ body {
     margin-bottom: 5px;
 }
 
-.restock-info {
+.restock-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 0.9em;
-    color: #aaa;
+    background: #222;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+.restock-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
 }
 
 .price-tag {
@@ -264,11 +281,12 @@ body {
     padding: 2px 6px;
     border-radius: 4px;
     font-family: monospace;
+    font-size: 0.8em;
 }
 
 .restock-controls {
     display: flex;
-    gap: 10px;
+    gap: 5px;
 }
 
 .stock-warning {
@@ -397,7 +415,7 @@ body {
 /* --- UI DE INTERACCIÓN PELIGROSA --- */
 .danger-ui {
     border: 2px solid var(--accent-red);
-    background: #2c1a1a; /* Rojo muy oscuro */
+    background: #2c1a1a;
     text-align: center;
 }
 
@@ -423,7 +441,7 @@ body {
 .progress-fill {
     height: 100%;
     width: 0%;
-    background: linear-gradient(90deg, #ffeb3b, #f44336); /* Amarillo a rojo */
+    background: linear-gradient(90deg, #ffeb3b, #f44336);
     transition: width 0.1s linear;
 }
 
