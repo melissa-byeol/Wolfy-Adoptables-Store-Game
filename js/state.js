@@ -1,6 +1,7 @@
 // --- CONFIGURACIÓN DE LA COMUNIDAD ---
 const COMMUNITY_STYLES = {
     "FanmadeG": { border: "#ff69b4", glow: "#ff69b4" }, // Amiga de la comunidad (Rosa)
+    "FanmadeB": { border: "#69b4ff", glow: "#69b4ff" },
     "Default":   { border: "#ffffff", glow: "#ffffff" } // Por defecto
 };
 
