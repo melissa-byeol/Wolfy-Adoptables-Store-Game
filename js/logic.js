@@ -61,11 +61,38 @@ function gameTick() {
 }
 
 function spawnCustomer() {
-    const fn = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)]; const ln = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
+    let firstName, lastName;
+    let isCommunityMember = false;
+    let memberColor = "#ffffff";
+    let memberBorderType = "Default";
+
+    // 5% de probabilidad de que sea un miembro de la comunidad
+    if (Math.random() < 0.05 && COMMUNITY_NAMES.length > 0) {
+        const randomMember = COMMUNITY_NAMES[Math.floor(Math.random() * COMMUNITY_NAMES.length)];
+        firstName = randomMember.name;
+        lastName = ""; 
+        isCommunityMember = true;
+        memberColor = randomMember.color;
+        memberBorderType = randomMember.specialTagBorder || "Default";
+    } else {
+        firstName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
+        lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
+    }
+    
     let type = 'white'; let qty = Math.floor(Math.random() * 4) + 1; const rand = Math.random();
     if (gameState.inventory.brown_wolfie > 0 && rand < 0.3) { type = 'brown'; qty = Math.floor(Math.random() * 2) + 1; }
     else if (gameState.inventory.winteruff > 0 && rand > 0.9) { type = 'winter'; qty = 1; }
-    const newCust = { id: Date.now() + Math.random(), name: `${fn} ${ln}`, state: 'entering', progress: 0, waitTimer: 0, cart: [], desiredType: type, desiredQty: qty, interactionStartTime: null, hasDanger: (type === 'brown'), hasWinter: (type === 'winter'), autoTimer: 0 };
+
+    const newCust = { 
+        id: Date.now() + Math.random(), 
+        name: `${firstName} ${lastName}`, 
+        state: 'entering', progress: 0, waitTimer: 0, cart: [], 
+        desiredType: type, desiredQty: qty, interactionStartTime: null, 
+        hasDanger: (type === 'brown'), hasWinter: (type === 'winter'), autoTimer: 0,
+        isCommunity: isCommunityMember,
+        customColor: memberColor,
+        borderType: memberBorderType
+    };
     gameState.customers.push(newCust);
 }
 
