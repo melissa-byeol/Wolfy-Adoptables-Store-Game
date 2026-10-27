@@ -153,37 +153,76 @@ function startWinterChecks() {
 }
 function showErrorToast(msg) { console.error(msg); showToast(msg); }
 
-// --- LÓGICA MINIJUEGO GORDINFLÓN ---
+// --- LÓGICA MINIJUEGO GORDINFLÓN (LÍNEA MÓVIL) ---
 function startGordinflonMinigame(mode) {
-    gameState.minigame.active = true; gameState.minigame.progress = 50; gameState.minigame.direction = 1;
+    gameState.minigame.active = true;
+    gameState.minigame.progress = 50; // Hambre inicial
+    gameState.minigame.needlePos = 0; // Posición de la línea (0 a 100)
+    gameState.minigame.direction = 1; // 1 = derecha, -1 = izquierda
+    
+    // UI Setup
     document.getElementById('pc-hint').classList.toggle('hidden', mode !== 'PC');
     document.getElementById('mobile-hint').classList.toggle('hidden', mode !== 'MOVIL');
     document.getElementById('btn-start-minigame').classList.toggle('hidden', mode !== 'MOVIL');
     document.getElementById('btn-pet-action').classList.toggle('hidden', mode === 'MOVIL' && gameState.minigame.active);
+
+    // Bucle del juego
     gameState.minigame.intervalId = setInterval(() => {
         if (!gameState.minigame.active) return;
-        gameState.minigame.progress -= 0.033;
-        gameState.minigame.targetPos += 1.5 * gameState.minigame.direction;
-        if (gameState.minigame.targetPos > 85 || gameState.minigame.targetPos < 0) gameState.minigame.direction *= -1;
+
+        // 1. Drenado constante (Hambre baja)
+        gameState.minigame.progress -= 0.033; 
+
+        // 2. Movimiento de la Aguja (Rebote rápido)
+        gameState.minigame.needlePos += 2.5 * gameState.minigame.direction; 
+        if (gameState.minigame.needlePos >= 100 || gameState.minigame.needlePos <= 0) {
+            gameState.minigame.direction *= -1;
+        }
+
+        // 3. Chequear condiciones de victoria/derrota
         if (gameState.minigame.progress <= 0) endMinigame(false);
         if (gameState.minigame.progress >= 100) endMinigame(true);
+
         updateMinigameUI();
     }, 16);
 }
 
 function performPetAction() {
     if (!gameState.minigame.active) return;
-    const hit = Math.abs(gameState.minigame.progress - gameState.minigame.targetPos) < 10;
-    if (hit) gameState.minigame.progress += 20; else gameState.minigame.progress -= 10;
+
+    // La zona rosa está fija entre 40% y 60% (width 20%, left 40%)
+    const targetStart = 40;
+    const targetEnd = 60;
+    
+    // Verificar si la aguja está dentro de ese rango
+    const hit = gameState.minigame.needlePos >= targetStart && gameState.minigame.needlePos <= targetEnd;
+
+    if (hit) {
+        gameState.minigame.progress += 20; // ¡Acierto! Calma al lobito
+        showToast("¡Bien!");
+    } else {
+        gameState.minigame.progress -= 10; // Fallo
+        showToast("¡Fallaste!");
+    }
     updateMinigameUI();
 }
 
 function endMinigame(success) {
-    gameState.minigame.active = false; clearInterval(gameState.minigame.intervalId);
-    if (success) onGordinflonSuccess(); else onGordinflonFail();
+    gameState.minigame.active = false;
+    clearInterval(gameState.minigame.intervalId);
+    
+    if (success) onGordinflonSuccess();
+    else onGordinflonFail();
 }
 
 function updateMinigameUI() {
-    const bar = document.getElementById('gordinflon-bar'); const target = document.getElementById('gordinflon-target');
-    if (bar && target) { bar.style.width = `${Math.max(0, Math.min(100, gameState.minigame.progress))}%`; target.style.left = `${gameState.minigame.targetPos}%`; }
+    const bar = document.getElementById('gordinflon-bar');
+    const needle = document.getElementById('minigame-needle'); // Nuevo ID
+    
+    if (bar && needle) {
+        // Actualizar barra de hambre
+        bar.style.width = `${Math.max(0, Math.min(100, gameState.minigame.progress))}%`;
+        // Actualizar posición de la línea blanca
+        needle.style.left = `${gameState.minigame.needlePos}%`;
+    }
 }
