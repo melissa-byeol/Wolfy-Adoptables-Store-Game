@@ -31,7 +31,12 @@ const DEFAULT_STATE = {
         microwave_incident: false,
         active_chaos_timers: [] // NUEVO: Array de objetos {dayTriggered, duration}
     },
-    daily_tracker: { start_budget: 0, earned_today: 0 },
+    // ... resto del estado ...
+    daily_tracker: { 
+        start_budget: 0, 
+        earned_today: 0,
+        chaos_log: [] // NUEVO: Historial de daños del día actual
+    },
     
     interactionMode: null, 
     petTimer: 0,
