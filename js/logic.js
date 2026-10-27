@@ -320,44 +320,110 @@ function activateChaosTimer() {
     gameState.stats.active_chaos_timers.push({ dayTriggered: gameState.day, expiresOn: gameState.day + CHAOS_DURATION_DAYS });
 }
 
+// --- MECÁNICAS DE CAOS TEMPORIZADO ACTUALIZADAS ---
+
 function processDailyPupChaos() {
     if (gameState.stats.active_chaos_timers.length === 0) return;
+    
     const activeTimers = gameState.stats.active_chaos_timers.filter(t => t.expiresOn > gameState.day);
     gameState.stats.active_chaos_timers = activeTimers;
     if (activeTimers.length === 0) return;
 
+    let dailyWarnings = 0;
+    let dailyDamageCost = 0;
+    let damageLog = []; // Para mostrar en el reporte del día siguiente
+
+    // Por CADA timer activo, tiramos los dados
     for (let i = 0; i < activeTimers.length; i++) {
         const roll = Math.random();
+
+        // 1% DESPIDO EXPLOSIVO (Global, solo una vez)
         if (roll < 0.01 && !gameState.stats.microwave_incident) {
             gameState.stats.microwave_incident = true;
             triggerGameOver('microwave');
-            return;
+            return; 
         }
+
+        // 10% ADVERTENCIA + DAÑO ECONÓMICO VARIABLE
         if (roll < 0.11) {
-            gameState.stats.chaos_warnings++;
-            showToast(`⚠️ ADVERTENCIA #${gameState.stats.chaos_warnings}: Cachorro jugando con enchufes.`);
-            gameState.budget -= 5;
-            if (gameState.stats.chaos_warnings >= 3) { triggerGameOver('pup_closures'); return; }
+            dailyWarnings++;
+            
+            // Tipos de daño económico aleatorio
+            const damages = [
+                { cost: 8, msg: "Cables rojos mordidos (Reparación eléctrica)" },
+                { cost: 12, msg: "Cliente tropezó con jaula (Indemnización)" },
+                { cost: 15, msg: "Veterinario de urgencia (Ingestión de plástico)" },
+                { cost: 5, msg: "Limpieza especializada (Accidente biológico)" },
+                { cost: 20, msg: "Pie mordido durante revisión (Gastos médicos)" }
+            ];
+            
+            const dmg = damages[Math.floor(Math.random() * damages.length)];
+            dailyDamageCost += dmg.cost;
+            damageLog.push(dmg.msg);
         }
     }
-    // Bono ternura (solo una vez al día)
+
+    // Aplicar consecuencias acumuladas del día
+    if (dailyWarnings > 0) {
+        gameState.stats.chaos_warnings += dailyWarnings;
+        gameState.budget -= dailyDamageCost;
+        
+        // Mostrar toast resumen (no spam de toasts individuales)
+        showToast(`🐾 ¡CAOS DIARIO! ${dailyWarnings} incidentes. Daños: -$${dailyDamageCost}`);
+        
+        // Guardar log para el reporte de fin de día
+        gameState.daily_tracker.chaos_log = damageLog; 
+
+        // Game Over por acumulación histórica
+        if (gameState.stats.chaos_warnings >= 3) {
+            triggerGameOver('pup_closures');
+            return;
+        }
+    }
+
+    // BONO DE TERNURA (Solo una vez al día, independientemente de timers)
     if (Math.random() < 0.5) {
         const bonus = Math.floor(gameState.daily_tracker.earned_today * 0.10);
-        if (bonus > 0) { gameState.budget += bonus; showToast(`🐾 ¡BONO TERNURA! +$${bonus}`); }
+        if (bonus > 0) {
+            gameState.budget += bonus;
+            showToast(`🐾 ¡BONO DE TERNURA! Clientes felices donaron +$${bonus}`);
+        }
     }
 }
 
 function nextDay() {
     if (checkGoodEndings()) return;
-    processDailyPupChaos(); // Procesa caos ANTES de avanzar día
     
+    // Procesar caos PRIMERO (esto llena chaos_log si hubo incidentes)
+    processDailyPupChaos(); 
+    
+    // Si hubo Game Over, processDailyPupChaos ya detuvo la ejecución.
+    // Si llegamos aquí, seguimos vivos. Mostramos reporte extendido.
+    
+    const reportBody = document.getElementById('day-report-body');
+    let currentReport = reportBody.textContent;
+    
+    // Añadir sección de caos si hubo incidentes hoy
+    if (gameState.daily_tracker.chaos_log && gameState.daily_tracker.chaos_log.length > 0) {
+        currentReport += `\n\n--- 🐾 REPORTE DE CAOS ---\n`;
+        gameState.daily_tracker.chaos_log.forEach(log => {
+            currentReport += `• ${log}\n`;
+        });
+        currentReport += `------------------------\n`;
+    }
+    
+    reportBody.textContent = currentReport;
+
+    // AHORA sí avanzamos el día y limpiamos
     gameState.day++;
     gameState.daily_tracker.start_budget = gameState.budget;
     gameState.daily_tracker.earned_today = 0;
+    gameState.daily_tracker.chaos_log = []; // Resetear log para el nuevo día
     gameState.customers = [];
     gameState.winterAbandonTimer = 0;
+    
     saveGame();
-    document.getElementById('day-end-modal').classList.add('hidden');
+    document.getElementById('day-end-modal').classList.remove('hidden');
     updateUI();
 }
 
