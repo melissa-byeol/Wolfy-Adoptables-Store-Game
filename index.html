@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador Wolfies - V4.2 Finales</title>
+    <title>Simulador Wolfies - V5 Caos & Dominancia</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
     <!-- Pantalla de Inicio -->
     <div id="start-screen" class="screen active">
         <h1>TIENDA DE WOLFIES</h1>
-        <p>Gestiona inventario, evita mordiscos y mantén la frescura.</p>
+        <p>Gestiona inventario, evita mordiscos y sobrevive al caos adorable.</p>
         <button id="btn-new-game" class="btn primary">Nueva Partida</button>
         <button id="btn-load-game" class="btn secondary" disabled>Cargar Partida</button>
     </div>
@@ -24,107 +24,198 @@
             <div class="stat-item money"><span>Fondos:</span> <strong id="display-budget">$0.00</strong></div>
             <div class="stat-item status"><span>Tienda:</span> <strong id="display-shop-status">CERRADA</strong></div>
             <div class="stat-item quota"><span>Meta:</span> <strong id="display-quota-status">$0.00 / $30.00</strong></div>
+            <!-- NUEVO: Indicador de Caos Activo -->
+            <div class="stat-item chaos hidden" id="chaos-active-display">
+                <span>🐾 Caos:</span> <strong>0</strong>
+            </div>
         </header>
 
         <main class="store-layout">
+            
+            <!-- ZONA ESTANTES -->
             <section class="shelves-area">
                 <h3>ESTANTES (<span id="slot-capacity-display">48</span> Slots)</h3>
                 <div id="shelves-grid" class="shelves-grid"></div>
-                <div class="stock-counter">Stock Total: <strong id="display-total-stock-map">0</strong>/<span id="max-stock-display">48</span></div>
+                <div class="stock-counter">
+                    Stock Total: <strong id="display-total-stock-map">0</strong>/<span id="max-stock-display">48</span>
+                </div>
             </section>
 
+            <!-- ZONA PASILLOS -->
             <section class="aisle-area">
                 <h3>PASILLOS</h3>
                 <div class="aisle-floor" id="aisle-container"></div>
             </section>
 
+            <!-- ZONA CAJA -->
             <section class="checkout-area">
                 <h3>CAJA REGISTRADORA</h3>
                 <div class="queue-display" id="queue-container"></div>
-                <div id="auto-cashier-indicator" class="hidden">🤖 <strong>Lobito Cajero:</strong> Atendiendo...</div>
+                
+                <div id="auto-cashier-indicator" class="hidden">
+                    🤖 <strong>Lobito Cajero:</strong> Atendiendo...
+                </div>
+
                 <div class="shop-controls">
                     <button id="btn-toggle-shop" class="btn success large">ABRIR TIENDA</button>
                 </div>
             </section>
+
         </main>
 
+        <!-- PANEL DE GESTIÓN -->
         <section class="management-panel">
+            
+            <!-- Reposición -->
             <div class="restock-section">
                 <h3>📦 ALMACÉN CENTRAL</h3>
                 <div class="restock-grid">
-                    <div class="restock-item"><span>⬜ Básico ($5/12u)</span><div class="btn-group"><button id="btn-buy-lote-white" class="btn small primary">+1 Lote</button><button id="btn-buy-max-white" class="btn small success">Max</button></div></div>
-                    <div class="restock-item"><span>🟤 Gordinflón ($12/12u)</span><div class="btn-group"><button id="btn-buy-lote-brown" class="btn small warning">+1 Lote</button><button id="btn-buy-max-brown" class="btn small warning">Max</button></div></div>
-                    <div class="restock-item"><span>❄️ Winteruff ($30/6u)</span><div class="btn-group"><button id="btn-buy-lote-winter" class="btn small info">+1 Lote</button><button id="btn-buy-max-winter" class="btn small info">Max</button></div></div>
+                    <div class="restock-item">
+                        <span>⬜ Básico ($5/12u)</span>
+                        <div class="btn-group">
+                            <button id="btn-buy-lote-white" class="btn small primary">+1 Lote</button>
+                            <button id="btn-buy-max-white" class="btn small success">Max</button>
+                        </div>
+                    </div>
+                    <div class="restock-item">
+                        <span>🟤 Gordinflón ($12/12u)</span>
+                        <div class="btn-group">
+                            <button id="btn-buy-lote-brown" class="btn small warning">+1 Lote</button>
+                            <button id="btn-buy-max-brown" class="btn small warning">Max</button>
+                        </div>
+                    </div>
+                    <div class="restock-item">
+                        <span>❄️ Winteruff ($30/6u)</span>
+                        <div class="btn-group">
+                            <button id="btn-buy-lote-winter" class="btn small info">+1 Lote</button>
+                            <button id="btn-buy-max-winter" class="btn small info">Max</button>
+                        </div>
+                    </div>
+                    <!-- NUEVO: Cachorritos Curiosos -->
+                    <div class="restock-item">
+                        <span>🐾 Curiosos ($60/12j)</span>
+                        <div class="btn-group">
+                            <button id="btn-buy-lote-pups" class="btn small pup-btn">+1 Lote</button>
+                            <button id="btn-buy-max-pups" class="btn small pup-btn">Max</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="stock-warning hidden" id="low-stock-alert">⚠️ ¡Poco stock!</div>
             </div>
 
+            <!-- Mejoras -->
             <div class="upgrades-section">
                 <h3>🔧 MEJORAS DE TIENDA</h3>
                 <div class="upgrade-list">
-                    <div class="upgrade-item" id="upg-exp1"><div class="upg-info"><strong>Expansión I</strong><small>+12 Slots Visuales</small></div><button id="btn-upg-exp1" class="btn small ghost" data-cost="50">Comprar ($50)</button></div>
-                    <div class="upgrade-item" id="upg-ac"><div class="upg-info"><strong>Aire Acondicionado</strong><small>Winteruffs duran 12s frescos</small></div><button id="btn-upg-ac" class="btn small ghost" data-cost="125">Comprar ($125)</button></div>
-                    <div class="upgrade-item" id="upg-exp2"><div class="upg-info"><strong>Expansión II + Cajero</strong><small>+12 Slots + Auto-Caja Básica</small></div><button id="btn-upg-exp2" class="btn small ghost" data-cost="200">Comprar ($200)</button></div>
+                    <div class="upgrade-item" id="upg-exp1">
+                        <div class="upg-info">
+                            <strong>Expansión I</strong>
+                            <small>+12 Slots Visuales</small>
+                        </div>
+                        <button id="btn-upg-exp1" class="btn small ghost" data-cost="50">Comprar ($50)</button>
+                    </div>
+                    <div class="upgrade-item" id="upg-ac">
+                        <div class="upg-info">
+                            <strong>Aire Acondicionado</strong>
+                            <small>Winteruffs duran 12s frescos</small>
+                        </div>
+                        <button id="btn-upg-ac" class="btn small ghost" data-cost="125">Comprar ($125)</button>
+                    </div>
+                    <div class="upgrade-item" id="upg-exp2">
+                        <div class="upg-info">
+                            <strong>Expansión II + Cajero</strong>
+                            <small>+12 Slots + Auto-Caja Básica</small>
+                        </div>
+                        <button id="btn-upg-exp2" class="btn small ghost" data-cost="200">Comprar ($200)</button>
+                    </div>
                 </div>
             </div>
+
         </section>
 
         <!-- MODALES -->
+
+        <!-- Interacción Peligro (Gordinflón) -->
         <div id="interaction-overlay" class="modal hidden">
             <div class="modal-content danger-ui">
-                <h2 style="color: var(--accent-red)">🐺 LOBITO GORDINFLÓN</h2>
-                <p id="interaction-instruction">¡Calma su hambre o te morderá!</p>
-                
-                <div class="minigame-track">
-                    <div id="gordinflon-bar" class="minigame-fill"></div>
-                    <div class="minigame-target"></div> <!-- Zona Rosa Fija -->
-                    <div id="minigame-needle" class="minigame-needle"></div> <!-- Línea Blanca Móvil -->
+                <h2 style="color: var(--accent-red)">🐺 PRECAUCIÓN</h2>
+                <p id="interaction-instruction">Instrucciones...</p>
+                <div id="pet-bar-container" class="hidden">
+                    <div class="progress-track"><div id="pet-progress-bar" class="progress-fill"></div></div>
+                    <small>Mantén la calma...</small>
                 </div>
-
-                <div id="pc-hint" class="controls-hint hidden">Presiona <kbd>G</kbd> para iniciar y <kbd>P</kbd> cuando la línea esté en la zona rosa.</div>
-                <div id="mobile-hint" class="controls-hint hidden">Toca "EMPEZAR" y luego "ACARICIAR" cuando la línea esté en la zona rosa.</div>
-
-                <button id="btn-start-minigame" class="btn warning large">EMPEZAR (Móvil)</button>
-                <button id="btn-pet-action" class="btn success large hidden">ACARICIAR</button>
             </div>
         </div>
 
+        <!-- Modal Winteruff / Jefe (Urgencia) -->
         <div id="winteruff-modal" class="modal hidden">
             <div class="modal-content winteruff-ui">
-                <h2>❄️ VENTA URGENTE</h2>
+                <h2 id="wu-title">❄️ VENTA URGENTE</h2>
                 <p>Cliente: <strong id="wu-client-name">...</strong></p>
-                <div class="heat-container"><div class="heat-label">Nivel de Calor:</div><div class="heat-track"><div id="wu-heat-bar" class="heat-fill"></div></div><small>¡Vende antes de que se derrita!</small></div>
+                <div class="heat-container">
+                    <div class="heat-label">Nivel de Calor:</div>
+                    <div class="heat-track"><div id="wu-heat-bar" class="heat-fill"></div></div>
+                    <small id="wu-subtitle">¡Vende antes de que se derrita!</small>
+                </div>
                 <div class="price-dynamic">Precio: <span id="wu-price-display">$30.00</span></div>
                 <button id="btn-wu-confirm" class="btn success large pulse-btn">COBRAR AHORA</button>
                 <button id="btn-wu-cancel" class="btn ghost small">Cancelar</button>
             </div>
         </div>
 
+        <!-- Modal Pago Rápido -->
         <div id="quick-pay-modal" class="modal hidden">
             <div class="modal-content quick-pay-ui">
                 <h2>CAJA RÁPIDA</h2>
                 <p>Cliente: <strong id="qp-client-name">...</strong></p>
-                <div class="big-ticket"><span id="qp-quantity">... uds</span><div class="huge-price" id="qp-total-amount">$0.00</div></div>
+                <div class="big-ticket">
+                    <span id="qp-quantity">... uds</span>
+                    <div class="huge-price" id="qp-total-amount">$0.00</div>
+                </div>
                 <button id="btn-quick-confirm" class="btn success large pulse-btn">COBRAR 💸</button>
                 <button id="btn-quick-cancel" class="btn ghost small">Cancelar</button>
             </div>
         </div>
 
+        <!-- Modal Pago Manual -->
         <div id="payment-modal" class="modal hidden">
             <div class="modal-content payment-ui">
-                <h2>️ CALCULAR TOTAL<br><span style="font-size:0.8em; color:#aaa;" id="pay-client-name">Cliente</span></h2>
-                <div class="receipt-paper"><h4>Recibo</h4><ul id="client-cart-list"></ul><div class="total-line">TOTAL: <strong id="pay-total-amount">$0.00</strong></div></div>
-                <div class="input-section"><label>Monto recibido:</label><input type="number" id="pay-input-amount" step="0.01" placeholder="0.00"><div class="buttons-row"><button id="btn-confirm-payment" class="btn primary">CONFIRMAR</button><button id="btn-cancel-payment" class="btn ghost">CANCELAR</button></div><p id="pay-error-msg" class="error-text hidden"></p></div>
+                <h2>⚠️ CALCULAR TOTAL<br><span style="font-size:0.8em; color:#aaa;" id="pay-client-name">Cliente</span></h2>
+                <div class="receipt-paper">
+                    <h4>Recibo</h4>
+                    <ul id="client-cart-list"></ul>
+                    <div class="total-line">TOTAL: <strong id="pay-total-amount">$0.00</strong></div>
+                </div>
+                <div class="input-section">
+                    <label>Monto recibido:</label>
+                    <input type="number" id="pay-input-amount" step="0.01" placeholder="0.00">
+                    <div class="buttons-row">
+                        <button id="btn-confirm-payment" class="btn primary">CONFIRMAR</button>
+                        <button id="btn-cancel-payment" class="btn ghost">CANCELAR</button>
+                    </div>
+                    <p id="pay-error-msg" class="error-text hidden"></p>
+                </div>
             </div>
         </div>
 
+        <!-- Modal Fin de Día -->
         <div id="day-end-modal" class="modal hidden">
-            <div class="modal-content"><h2>Fin de Jornada</h2><pre id="day-report-body" class="report-text"></pre><button id="btn-next-day" class="btn primary">SIGUIENTE DÍA</button></div>
+            <div class="modal-content">
+                <h2>Fin de Jornada</h2>
+                <pre id="day-report-body" class="report-text"></pre>
+                <button id="btn-next-day" class="btn primary">SIGUIENTE DÍA</button>
+            </div>
         </div>
 
+        <!-- Modal Genérico / Game Over / Victoria -->
         <div id="message-modal" class="modal hidden">
-            <div class="modal-content"><h2 id="modal-title">Mensaje</h2><p id="modal-body">Contenido...</p><button id="btn-close-modal" class="btn primary">Aceptar</button></div>
+            <div class="modal-content">
+                <h2 id="modal-title">Mensaje</h2>
+                <p id="modal-body">Contenido...</p>
+                <button id="btn-close-modal" class="btn primary">Aceptar</button>
+            </div>
         </div>
+
     </div>
 
     <script src="js/state.js" defer></script>
