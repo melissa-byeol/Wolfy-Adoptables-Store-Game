@@ -6,8 +6,10 @@ const COMMUNITY_STYLES = {
 
 const COMMUNITY_NAMES = [
     { name: "Pekita", color: "#FFFFFF", specialTagBorder: "FanmadeG" },
-    // Añade más aquí: { name: "NombreAmigo", color: "#FFFFFF", specialTagBorder: "FanmadeG" },
+    { name: "Yocch", color: "#B9CFEB", specialTagBorder: "FanmadeG" }, // Compañera de taller (Azul suave)
+    // Añade más aquí...
 ];
+
 
 const DEFAULT_STATE = {
     day: 1,
