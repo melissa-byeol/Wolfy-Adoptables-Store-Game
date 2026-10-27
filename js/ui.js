@@ -11,10 +11,28 @@ function updateStoreMapView() {
 function renderCustomers() {
     if(!gameState) return; const aisle = document.querySelector('.aisle-floor'); const queue = document.querySelector('.queue-display'); if(!aisle || !queue) return;
     aisle.innerHTML = ''; queue.innerHTML = ''; const hasAuto = gameState.upgrades.expansion2;
+    
     gameState.customers.forEach(cust => {
         const blob = document.createElement('div'); blob.classList.add('customer-blob'); blob.dataset.id = cust.id;
-        const tag = document.createElement('span'); tag.classList.add('customer-name-tag'); let icon = '⬜'; if(cust.desiredType==='brown') icon='🟤'; if(cust.desiredType==='winter') icon='❄️';
-        tag.textContent = `${cust.name.split(' ')[0]} ${icon}x${cust.desiredQty}`; blob.appendChild(tag);
+        
+        const tag = document.createElement('span'); tag.classList.add('customer-name-tag'); 
+        let icon = '⬜'; if(cust.desiredType==='brown') icon='🟤'; if(cust.desiredType==='winter') icon='❄️';
+        
+        // Lógica de estilo para la comunidad
+        if (cust.isCommunity) {
+            const styleConfig = COMMUNITY_STYLES[cust.borderType] || COMMUNITY_STYLES["Default"];
+            
+            tag.style.color = cust.customColor; // En este caso #FFFFFF
+            tag.style.fontWeight = "bold";
+            tag.style.border = `1px solid ${styleConfig.border}`; 
+            tag.style.boxShadow = `0 0 5px ${styleConfig.glow}`;
+            tag.style.padding = "1px 4px";
+            tag.style.backgroundColor = "rgba(0,0,0,0.8)";
+        }
+
+        tag.textContent = `${cust.name.split(' ')[0]} ${icon}x${cust.desiredQty}`; 
+        blob.appendChild(tag);
+
         let left=0, top=50;
         switch(cust.state) {
             case 'entering': blob.classList.add('entering'); left = cust.progress*0.3; break;
@@ -25,8 +43,15 @@ function renderCustomers() {
             case 'leaving_angry': blob.classList.add('leaving-angry'); left=80+((100-cust.progress)*0.2); break;
         }
         blob.style.left = `${left}%`; blob.style.top = `${top}%`; aisle.appendChild(blob);
+        
         if(cust.state === 'waiting_in_queue') {
-            const item = document.createElement('div'); item.classList.add('queue-item'); const total = cust.cart.reduce((s,i)=>s+i.price,0);
+            const item = document.createElement('div'); item.classList.add('queue-item'); 
+            if (cust.isCommunity) {
+                const styleConfig = COMMUNITY_STYLES[cust.borderType] || COMMUNITY_STYLES["Default"];
+                item.style.border = `1px solid ${styleConfig.border}`;
+                item.style.boxShadow = `inset 0 0 5px ${styleConfig.glow}`;
+            }
+            const total = cust.cart.reduce((s,i)=>s+i.price,0);
             item.innerHTML = `<span>${cust.name.split(' ')[0]}</span><span class="price">$${total.toFixed(2)}</span>`;
             if(!hasAuto || cust.hasDanger || cust.hasWinter) item.onclick = () => attemptCheckout(cust.id); queue.appendChild(item);
         }
