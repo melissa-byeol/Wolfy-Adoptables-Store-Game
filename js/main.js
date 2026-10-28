@@ -53,7 +53,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderModifierCards();
 
-    // Eventos Menú Principal
+// FIX: "Cargar Partida" estaba disabled en el HTML y nunca se habilitaba,
+// por lo que la partida guardada era inalcanzable. Ahora se habilita si hay save.
+(function enableLoadButtonIfSaveExists() {
+    const btn = document.getElementById('btn-load-game');
+    if (btn && window.localStorage.getItem(SAVE_KEY)) btn.disabled = false;
+})();
+
+// Eventos Menú Principal
     btnNew.addEventListener('click', () => {
         screenStart.classList.add('hidden');
         screenMods.classList.remove('hidden');
@@ -81,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const d = loadGame();
         if(d) {
             gameState = d;
+            normalizeLoadedState();
             if(gameState.shopStatus==='open') { gameState.shopStatus='closed'; gameState.customers=[]; }
             screenStart.classList.add('hidden');
             screenGame.classList.remove('hidden');
@@ -99,8 +107,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnNext.addEventListener('click', () => {
         nextDay();
-        btnToggle.textContent = "ABRIR TIENDA"; btnToggle.className = "btn success large";
-        gameState.shopStatus = 'closed';
+        // FIX: no pisar gameState.shopStatus a mano ni forzar className:
+        // openShop()/closeShop()/updateUI() ya sincronizan texto y clases del botón.
+        btnToggle.textContent = "ABRIR TIENDA";
+        btnToggle.classList.remove('danger'); btnToggle.classList.add('success');
     });
 
     btnCloseGen.addEventListener('click', () => document.getElementById('message-modal').classList.add('hidden'));
