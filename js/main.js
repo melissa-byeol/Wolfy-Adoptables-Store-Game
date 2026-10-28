@@ -115,6 +115,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnCloseGen.addEventListener('click', () => document.getElementById('message-modal').classList.add('hidden'));
 
+    // NUEVO: Tienda de Skins (Wolfies Go Studio Certification)
+    const btnSkinShop = document.getElementById('btn-open-skin-shop');
+    if (btnSkinShop) btnSkinShop.addEventListener('click', () => openSkinShop());
+
     const btnBuyW = document.getElementById('btn-buy-lote-white');
     const btnMaxW = document.getElementById('btn-buy-max-white');
     const btnBuyB = document.getElementById('btn-buy-lote-brown');
