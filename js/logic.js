@@ -1,10 +1,9 @@
-// js/logic.js - V5 CAOS & DOMINANCIA
+// js/logic.js - V5 CAOS & DOMINANCIA + LOGROS + MINIJUEVO
 
 // --- CONSTANTES ---
 const COST_LOTE_WHITE = 5.00; const UNITS_LOTE_WHITE = 12; const PRICE_WHITE = 1.00; const PRES_WHITE = 0.50;
 const COST_LOTE_BROWN = 12.00; const UNITS_LOTE_BROWN = 12; const PRICE_BROWN = 2.50; const PRES_BROWN = 2.00;
 const COST_LOTE_WINTER = 30.00; const UNITS_LOTE_WINTER = 6; const PRICE_WINTER_BASE = 6.00; const PRICE_WINTER_FRESH = 30.00; const PRES_WINTER = 5.00;
-// NUEVO: Constantes Cachorritos
 const COST_LOTE_PUPS = 60.00; const UNITS_LOTE_PUPS = 12; const PRICE_PUP_CAGE = 9.00; const PRES_PUP_CAGE = 3.00;
 const CHAOS_DURATION_DAYS = 5;
 
@@ -15,53 +14,51 @@ const LAST_NAMES = ["García", "Rodríguez", "Martínez", "López", "Hernández"
 let gameInterval = null; 
 let winterCheckInterval = null;
 
+// --- SISTEMA DE LOGROS ---
+function unlockAchievement(id) {
+    if (!gameState.achievements.unlocked.includes(id)) {
+        gameState.achievements.unlocked.push(id);
+        const ach = ACHIEVEMENTS[id];
+        showModal("🏆 ¡LOGRO DESBLOQUEADO!", `${ach.title}\n\n${ach.desc}`);
+        if (ach.isExclusive) document.getElementById('modal-title').style.color = "#ffd700";
+        saveGame();
+    }
+}
+
+function checkExclusiveAchievements() {
+    const today = new Date();
+    const deadline = new Date(ACHIEVEMENTS["demo_2027"].deadline);
+    if (today < deadline) unlockAchievement("demo_2027");
+}
+
 // --- INICIALIZACIÓN ---
 function initNewGame() {
     gameState = JSON.parse(JSON.stringify(DEFAULT_STATE));
-    gameState.budget = 10.00;
-    gameState.inventory.white_wolfie = 24;
-    gameState.daily_tracker.start_budget = gameState.budget;
-    gameState.daily_tracker.earned_today = 0;
-    gameState.customers = [];
-    gameState.shopStatus = 'closed';
-    gameState.currentMaxSlots = BASE_MAX_SLOTS;
-
+    gameState.budget = 10.00; gameState.inventory.white_wolfie = 24;
+    gameState.daily_tracker.start_budget = gameState.budget; gameState.daily_tracker.earned_today = 0;
+    gameState.customers = []; gameState.shopStatus = 'closed'; gameState.currentMaxSlots = BASE_MAX_SLOTS;
+    checkExclusiveAchievements(); // <-- Verifica logro al inicio
     updateUI();
     showModal("Bienvenido", "Tu tienda ha sido inaugurada.\nTienes 24 Lobitos Básicos.\nPresiona 'ABRIR TIENDA' para comenzar.");
 }
 
 // --- CONTROL TIENDA ---
-function toggleShopState() {
-    if (gameState.shopStatus === 'closed') openShop(); else closeShop();
-}
-
+function toggleShopState() { if (gameState.shopStatus === 'closed') openShop(); else closeShop(); }
 function openShop() {
     if (gameState.shopStatus === 'open') return;
-    gameState.shopStatus = 'open';
-    gameState.customers = []; 
-    
+    gameState.shopStatus = 'open'; gameState.customers = [];
     document.getElementById('btn-toggle-shop').textContent = "CERRAR TIENDA";
     document.getElementById('btn-toggle-shop').classList.replace('success', 'danger');
     document.getElementById('display-shop-status').textContent = "ABIERTA";
     document.getElementById('display-shop-status').className = "stat-item status-open";
-
-    gameInterval = setInterval(gameTick, 500);
-    startWinterChecks();
-    resetInactivityTimer();
-    
+    gameInterval = setInterval(gameTick, 500); startWinterChecks(); resetInactivityTimer();
     spawnCustomer(); spawnCustomer();
 }
-
 function closeShop() {
     if (gameState.shopStatus === 'closed') return;
-    clearInterval(gameInterval); gameInterval = null;
-    clearInterval(winterCheckInterval); winterCheckInterval = null;
+    clearInterval(gameInterval); gameInterval = null; clearInterval(winterCheckInterval); winterCheckInterval = null;
     if(inactivityTimer) clearTimeout(inactivityTimer);
-    
-    gameState.shopStatus = 'closed';
-    gameState.customers = []; 
-    processEndOfDay();
-    
+    gameState.shopStatus = 'closed'; gameState.customers = []; processEndOfDay();
     document.getElementById('btn-toggle-shop').textContent = "ABRIR TIENDA";
     document.getElementById('btn-toggle-shop').classList.replace('danger', 'success');
     document.getElementById('display-shop-status').textContent = "CERRADA";
@@ -70,103 +67,58 @@ function closeShop() {
 
 // --- SIMULACIÓN ---
 function gameTick() {
-    let anyActionTaken = false;
-    const hasAutoCashier = gameState.upgrades.expansion2;
-
+    let anyActionTaken = false; const hasAutoCashier = gameState.upgrades.expansion2;
     for (let i = gameState.customers.length - 1; i >= 0; i--) {
         const cust = gameState.customers[i];
-        
         switch (cust.state) {
-            case 'entering':
-                cust.progress += 10; 
-                if (cust.progress >= 100) { cust.state = 'shopping'; cust.progress = 0; anyActionTaken = true; }
-                break;
-
-            case 'shopping':
-                cust.waitTimer++; 
-                if (cust.waitTimer > 2) { 
-                    const type = cust.desiredType;
-                    const qty = cust.desiredQty;
-                    let stock = 0;
-                    if(type==='white') stock = gameState.inventory.white_wolfie;
-                    if(type==='brown') stock = gameState.inventory.brown_wolfie;
-                    if(type==='winter') stock = gameState.inventory.winteruff;
-                    if(type==='pups') stock = gameState.inventory.curious_pups;
-
-                    if (stock >= qty) {
-                        for(let k=0; k<qty; k++) {
-                            if(type==='white') { gameState.inventory.white_wolfie--; cust.cart.push({type:'white', price:PRICE_WHITE}); }
-                            if(type==='brown') { gameState.inventory.brown_wolfie--; cust.cart.push({type:'brown', price:PRICE_BROWN}); }
-                            if(type==='winter') { gameState.inventory.winteruff--; cust.cart.push({type:'winter', price:PRICE_WINTER_FRESH}); }
-                            if(type==='pups') { gameState.inventory.curious_pups--; cust.cart.push({type:'pups', price:PRICE_PUP_CAGE}); }
-                        }
-                        cust.state = 'going_to_checkout'; cust.progress = 0; anyActionTaken = true;
-                    } else if (stock > 0) {
-                        for(let k=0; k<stock; k++) {
-                             if(type==='white') { gameState.inventory.white_wolfie--; cust.cart.push({type:'white', price:PRICE_WHITE}); }
-                             if(type==='brown') { gameState.inventory.brown_wolfie--; cust.cart.push({type:'brown', price:PRICE_BROWN}); }
-                             if(type==='winter') { gameState.inventory.winteruff--; cust.cart.push({type:'winter', price:PRICE_WINTER_FRESH}); }
-                             if(type==='pups') { gameState.inventory.curious_pups--; cust.cart.push({type:'pups', price:PRICE_PUP_CAGE}); }
-                        }
-                        cust.state = 'going_to_checkout'; cust.progress = 0; anyActionTaken = true;
-                    } else {
-                        cust.state = 'leaving_angry'; cust.progress = 100; anyActionTaken = true;
-                    }
-                }
-                break;
-
-            case 'going_to_checkout':
-                cust.progress += 15; 
-                if (cust.progress >= 100) {
-                    cust.state = 'waiting_in_queue'; cust.progress = 100; anyActionTaken = true;
-                }
-                break;
-
-            case 'waiting_in_queue':
-                if (hasAutoCashier && !cust.hasDanger && !cust.hasWinter && !cust.isBoss) {
-                    if (!cust.autoProcessed) {
-                        cust.autoTimer = (cust.autoTimer || 0) + 1;
-                        if (cust.autoTimer > 2) {
-                            const total = cust.cart.reduce((sum, item) => sum + item.price, 0);
-                            gameState.budget += total;
-                            gameState.daily_tracker.earned_today += total;
-                            gameState.stats.total_sales_lifetime += cust.cart.length;
-                            cust.state = 'leaving_happy'; cust.progress = 100;
-                            anyActionTaken = true;
-                            showToast("🤖 Cajero atendió a " + cust.name.split(' ')[0]);
-                        }
-                    }
-                }
-                break;
-
-            case 'leaving_happy': case 'leaving_angry':
-                cust.progress -= 20; 
-                if (cust.progress <= -50) { gameState.customers.splice(i, 1); anyActionTaken = true; }
-                break;
+            case 'entering': cust.progress += 10; if (cust.progress >= 100) { cust.state = 'shopping'; cust.progress = 0; anyActionTaken = true; } break;
+            case 'shopping': cust.waitTimer++; if (cust.waitTimer > 2) {
+                const type = cust.desiredType; const qty = cust.desiredQty; let stock = 0;
+                if(type==='white') stock = gameState.inventory.white_wolfie; if(type==='brown') stock = gameState.inventory.brown_wolfie;
+                if(type==='winter') stock = gameState.inventory.winteruff; if(type==='pups') stock = gameState.inventory.curious_pups;
+                if (stock >= qty) { for(let k=0; k<qty; k++) { if(type==='white') { gameState.inventory.white_wolfie--; cust.cart.push({type:'white', price:PRICE_WHITE}); } if(type==='brown') { gameState.inventory.brown_wolfie--; cust.cart.push({type:'brown', price:PRICE_BROWN}); } if(type==='winter') { gameState.inventory.winteruff--; cust.cart.push({type:'winter', price:PRICE_WINTER_FRESH}); } if(type==='pups') { gameState.inventory.curious_pups--; cust.cart.push({type:'pups', price:PRICE_PUP_CAGE}); } } cust.state = 'going_to_checkout'; cust.progress = 0; anyActionTaken = true; }
+                else if (stock > 0) { for(let k=0; k<stock; k++) { if(type==='white') { gameState.inventory.white_wolfie--; cust.cart.push({type:'white', price:PRICE_WHITE}); } if(type==='brown') { gameState.inventory.brown_wolfie--; cust.cart.push({type:'brown', price:PRICE_BROWN}); } if(type==='winter') { gameState.inventory.winteruff--; cust.cart.push({type:'winter', price:PRICE_WINTER_FRESH}); } if(type==='pups') { gameState.inventory.curious_pups--; cust.cart.push({type:'pups', price:PRICE_PUP_CAGE}); } } cust.state = 'going_to_checkout'; cust.progress = 0; anyActionTaken = true; }
+                else { cust.state = 'leaving_angry'; cust.progress = 100; anyActionTaken = true; }
+            } break;
+            case 'going_to_checkout': cust.progress += 15; if (cust.progress >= 100) { cust.state = 'waiting_in_queue'; cust.progress = 100; anyActionTaken = true; } break;
+            case 'waiting_in_queue': if (hasAutoCashier && !cust.hasDanger && !cust.hasWinter && !cust.isBoss) { if (!cust.autoProcessed) { cust.autoTimer = (cust.autoTimer || 0) + 1; if (cust.autoTimer > 2) { const total = cust.cart.reduce((sum, item) => sum + item.price, 0); gameState.budget += total; gameState.daily_tracker.earned_today += total; gameState.stats.total_sales_lifetime += cust.cart.length; cust.state = 'leaving_happy'; cust.progress = 100; anyActionTaken = true; showToast("🤖 Cajero atendió a " + cust.name.split(' ')[0]); } } } break;
+            case 'leaving_happy': case 'leaving_angry': cust.progress -= 20; if (cust.progress <= -50) { gameState.customers.splice(i, 1); anyActionTaken = true; } break;
         }
     }
-
-    if (gameState.customers.length < 8) {
-        if (Math.random() < 0.15) { spawnCustomer(); anyActionTaken = true; }
-    }
-
+    if (gameState.customers.length < 8) { if (Math.random() < 0.15) { spawnCustomer(); anyActionTaken = true; } }
     if (anyActionTaken) { renderCustomers(); updateStoreMapView(); }
 }
 
-// --- SPAWN CON CUARTO JINETE Y CURIOSOS ---
+// --- SPAWN CON CUARTO JINETE, CURIOSOS Y COMUNIDAD ---
 function spawnCustomer() {
-    const fn = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
-    const ln = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
-    
+    let firstName, lastName;
+    let isCommunityMember = false;
+    let memberColor = "#ffffff";
+    let memberBorderType = "Default";
+
+    // 5% probabilidad de miembro de la comunidad
+    if (Math.random() < 0.05 && COMMUNITY_NAMES.length > 0) {
+        const randomMember = COMMUNITY_NAMES[Math.floor(Math.random() * COMMUNITY_NAMES.length)];
+        firstName = randomMember.name;
+        lastName = ""; 
+        isCommunityMember = true;
+        memberColor = randomMember.color;
+        memberBorderType = randomMember.specialTagBorder || "Default";
+    } else {
+        firstName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
+        lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
+    }
+
     let type = 'white'; let qty = Math.floor(Math.random() * 4) + 1;
     const rand = Math.random();
     
     // 1% Cuarto Jinete (Jefe Winteruff)
     if (rand < 0.01 && gameState.inventory.winteruff >= 6) {
         const newCust = {
-            id: Date.now() + Math.random(), name: `${fn} ${ln} [EL JEFE]`, state: 'entering', progress: 0, waitTimer: 0,
+            id: Date.now() + Math.random(), name: `${firstName} ${lastName} [EL JEFE]`, state: 'entering', progress: 0, waitTimer: 0,
             cart: [], desiredType: 'winter', desiredQty: 6, interactionStartTime: null,
-            hasDanger: false, hasWinter: true, isBoss: true, autoTimer: 0
+            hasDanger: false, hasWinter: true, isBoss: true, autoTimer: 0,
+            isCommunity: isCommunityMember, customColor: memberColor, borderType: memberBorderType
         };
         gameState.customers.push(newCust);
         showToast("⚠️ ¡ALERTA! Ha entrado EL JEFE a la tienda...");
@@ -181,9 +133,10 @@ function spawnCustomer() {
     else if (gameState.inventory.winteruff > 0 && rand > 0.9) { type = 'winter'; qty = 1; }
 
     const newCust = {
-        id: Date.now() + Math.random(), name: `${fn} ${ln}`, state: 'entering', progress: 0, waitTimer: 0,
+        id: Date.now() + Math.random(), name: `${firstName} ${lastName}`, state: 'entering', progress: 0, waitTimer: 0,
         cart: [], desiredType: type, desiredQty: qty, interactionStartTime: null,
-        hasDanger: (type === 'brown'), hasWinter: (type === 'winter'), isBoss: false, autoTimer: 0
+        hasDanger: (type === 'brown'), hasWinter: (type === 'winter'), isBoss: false, autoTimer: 0,
+        isCommunity: isCommunityMember, customColor: memberColor, borderType: memberBorderType
     };
     gameState.customers.push(newCust);
 }
@@ -193,35 +146,26 @@ function attemptCheckout(customerId) {
     resetInactivityTimer();
     const cust = gameState.customers.find(c => c.id == customerId);
     if (!cust || cust.state !== 'waiting_in_queue') return;
-
     cust.interactionStartTime = Date.now();
-
     if (cust.isBoss) showBossPayModal(cust);
     else if (cust.hasDanger) startDangerSequence(cust);
     else if (cust.hasWinter) showWinteruffPayModal(cust);
-    else {
-        const types = new Set(cust.cart.map(i => i.type));
-        if (types.size === 1) showQuickPayModal(cust);
-        else showManualCalcModal(cust);
-    }
+    else { const types = new Set(cust.cart.map(i => i.type)); if (types.size === 1) showQuickPayModal(cust); else showManualCalcModal(cust); }
 }
 
 // --- GESTIÓN STOCK Y MEJORAS ---
 function buyLote(type) {
-    resetInactivityTimer();
-    let cost = 0, units = 0;
+    resetInactivityTimer(); let cost = 0, units = 0;
     if(type==='white') { cost=COST_LOTE_WHITE; units=UNITS_LOTE_WHITE; }
     if(type==='brown') { cost=COST_LOTE_BROWN; units=UNITS_LOTE_BROWN; }
     if(type==='winter') { cost=COST_LOTE_WINTER; units=UNITS_LOTE_WINTER; }
     if(type==='pups') { cost=COST_LOTE_PUPS; units=UNITS_LOTE_PUPS; }
-
     if (gameState.budget >= cost) {
         gameState.budget -= cost;
         if(type==='white') gameState.inventory.white_wolfie += units;
         if(type==='brown') gameState.inventory.brown_wolfie += units;
         if(type==='winter') gameState.inventory.winteruff += units;
         if(type==='pups') gameState.inventory.curious_pups += units;
-        
         updateUI(); showToast(`Comprado lote ${type}.`);
     } else showErrorToast("Fondos insuficientes.");
 }
@@ -231,17 +175,12 @@ function fillStock(type) {
     const current = gameState.inventory[type+'_wolfie'] || gameState.inventory[type] || 0;
     const max = gameState.currentMaxSlots;
     if(current >= max) return showToast("Lleno.");
-    
-    const needed = max - current;
-    let unitCost=0, loteSize=0;
+    const needed = max - current; let unitCost=0, loteSize=0;
     if(type==='white') { unitCost=COST_LOTE_WHITE; loteSize=UNITS_LOTE_WHITE; }
     if(type==='brown') { unitCost=COST_LOTE_BROWN; loteSize=UNITS_LOTE_BROWN; }
     if(type==='winter') { unitCost=COST_LOTE_WINTER; loteSize=UNITS_LOTE_WINTER; }
     if(type==='pups') { unitCost=COST_LOTE_PUPS; loteSize=UNITS_LOTE_PUPS; }
-
-    const lots = Math.ceil(needed/loteSize);
-    const total = lots * unitCost;
-    
+    const lots = Math.ceil(needed/loteSize); const total = lots * unitCost;
     if(gameState.budget >= total) {
         gameState.budget -= total;
         if(type==='white') gameState.inventory.white_wolfie += lots*loteSize;
@@ -253,15 +192,10 @@ function fillStock(type) {
 }
 
 function buyUpgrade(id) {
-    resetInactivityTimer();
-    let cost = 0;
-    if(id==='exp1') cost = 50;
-    if(id==='ac') cost = 125;
-    if(id==='exp2') cost = 200;
-
+    resetInactivityTimer(); let cost = 0;
+    if(id==='exp1') cost = 50; if(id==='ac') cost = 125; if(id==='exp2') cost = 200;
     if(gameState.budget >= cost) {
-        gameState.budget -= cost;
-        gameState.upgrades[id] = true;
+        gameState.budget -= cost; gameState.upgrades[id] = true;
         if(id==='exp1' || id==='exp2') gameState.currentMaxSlots += 12;
         updateUI(); showToast("¡Mejora instalada!");
     } else showErrorToast("Fondos insuficientes.");
@@ -277,10 +211,7 @@ function checkGoodEndings() {
 
 function triggerGoodEnding(type) {
     clearInterval(gameInterval); clearInterval(winterCheckInterval); if(inactivityTimer) clearTimeout(inactivityTimer);
-    const modal = document.getElementById('message-modal');
-    const titleEl = document.getElementById('modal-title');
-    const bodyEl = document.getElementById('modal-body');
-    const btnClose = document.getElementById('btn-close-modal');
+    const modal = document.getElementById('message-modal'); const titleEl = document.getElementById('modal-title'); const bodyEl = document.getElementById('modal-body'); const btnClose = document.getElementById('btn-close-modal');
     let title="", msg="", color="";
     switch(type) {
         case 'emprendedor': title="EMPRENDEDOR DEL MES 🏆"; msg="Tus socios están impresionados.\nVacaciones pagadas en isla privada."; color="#ffd700"; break;
@@ -288,14 +219,11 @@ function triggerGoodEnding(type) {
         case 'guiness': title="NAH I'D WIN 📖"; msg="Solo vendiste básicos y llegaste a $5000.\nLibro Guinness asegurado."; color="#4caf50"; break;
     }
     titleEl.textContent = title; titleEl.style.color = color; bodyEl.innerText = msg;
-    btnClose.textContent = "DISFRUTAR VICTORIA (REINICIAR)";
-    btnClose.onclick = () => { clearSave(); location.reload(); };
-    modal.classList.remove('hidden');
+    btnClose.textContent = "DISFRUTAR VICTORIA (REINICIAR)"; btnClose.onclick = () => { clearSave(); location.reload(); }; modal.classList.remove('hidden');
 }
 
 function triggerGameOver(type) {
-    clearInterval(gameInterval); clearInterval(winterCheckInterval); if(inactivityTimer) clearTimeout(inactivityTimer);
-    gameState.shopStatus = 'closed';
+    clearInterval(gameInterval); clearInterval(winterCheckInterval); if(inactivityTimer) clearTimeout(inactivityTimer); gameState.shopStatus = 'closed';
     let title="", message="", subtitle="", color="var(--accent-red)";
     switch(type) {
         case 'bancarrota': title="BANCARROTA"; message="Demasiados lobitos, poco dinero."; subtitle="El Irresponsable"; break;
@@ -306,49 +234,29 @@ function triggerGameOver(type) {
         case 'pup_closures': title="CLAUSURA POR RIESGO 🐾"; message=`${gameState.stats.chaos_warnings} advertencias.\nSellado por ternura peligrosa.`; subtitle="Cuidador Irresponsable"; color="#ff9800"; break;
     }
     const modal = document.getElementById('message-modal');
-    document.getElementById('modal-title').textContent = title;
-    document.getElementById('modal-title').style.color = color;
+    document.getElementById('modal-title').textContent = title; document.getElementById('modal-title').style.color = color;
     document.getElementById('modal-body').innerText = `${message}\n\n---\n${subtitle}`;
-    const btnClose = document.getElementById('btn-close-modal');
-    btnClose.textContent = "REINICIAR PARTIDA";
-    btnClose.onclick = () => { clearSave(); location.reload(); };
-    modal.classList.remove('hidden');
+    const btnClose = document.getElementById('btn-close-modal'); btnClose.textContent = "REINICIAR PARTIDA";
+    btnClose.onclick = () => { clearSave(); location.reload(); }; modal.classList.remove('hidden');
 }
 
-// --- MECÁNICAS DE CAOS TEMPORIZADO ---
+// --- MECÁNICAS DE CAOS ---
 function activateChaosTimer() {
     gameState.stats.active_chaos_timers.push({ dayTriggered: gameState.day, expiresOn: gameState.day + CHAOS_DURATION_DAYS });
 }
 
-// --- MECÁNICAS DE CAOS TEMPORIZADO ACTUALIZADAS ---
-
 function processDailyPupChaos() {
     if (gameState.stats.active_chaos_timers.length === 0) return;
-    
     const activeTimers = gameState.stats.active_chaos_timers.filter(t => t.expiresOn > gameState.day);
     gameState.stats.active_chaos_timers = activeTimers;
     if (activeTimers.length === 0) return;
 
-    let dailyWarnings = 0;
-    let dailyDamageCost = 0;
-    let damageLog = []; // Para mostrar en el reporte del día siguiente
-
-    // Por CADA timer activo, tiramos los dados
+    let dailyWarnings = 0; let dailyDamageCost = 0; let damageLog = [];
     for (let i = 0; i < activeTimers.length; i++) {
         const roll = Math.random();
-
-        // 1% DESPIDO EXPLOSIVO (Global, solo una vez)
-        if (roll < 0.01 && !gameState.stats.microwave_incident) {
-            gameState.stats.microwave_incident = true;
-            triggerGameOver('microwave');
-            return; 
-        }
-
-        // 10% ADVERTENCIA + DAÑO ECONÓMICO VARIABLE
+        if (roll < 0.01 && !gameState.stats.microwave_incident) { gameState.stats.microwave_incident = true; triggerGameOver('microwave'); return; }
         if (roll < 0.11) {
             dailyWarnings++;
-            
-            // Tipos de daño económico aleatorio
             const damages = [
                 { cost: 8, msg: "Cables rojos mordidos (Reparación eléctrica)" },
                 { cost: 12, msg: "Cliente tropezó con jaula (Indemnización)" },
@@ -356,82 +264,43 @@ function processDailyPupChaos() {
                 { cost: 5, msg: "Limpieza especializada (Accidente biológico)" },
                 { cost: 20, msg: "Pie mordido durante revisión (Gastos médicos)" }
             ];
-            
             const dmg = damages[Math.floor(Math.random() * damages.length)];
-            dailyDamageCost += dmg.cost;
-            damageLog.push(dmg.msg);
+            dailyDamageCost += dmg.cost; damageLog.push(dmg.msg);
         }
     }
-
-    // Aplicar consecuencias acumuladas del día
     if (dailyWarnings > 0) {
         gameState.stats.chaos_warnings += dailyWarnings;
         gameState.budget -= dailyDamageCost;
-        
-        // Mostrar toast resumen (no spam de toasts individuales)
         showToast(`🐾 ¡CAOS DIARIO! ${dailyWarnings} incidentes. Daños: -$${dailyDamageCost}`);
-        
-        // Guardar log para el reporte de fin de día
-        gameState.daily_tracker.chaos_log = damageLog; 
-
-        // Game Over por acumulación histórica
-        if (gameState.stats.chaos_warnings >= 3) {
-            triggerGameOver('pup_closures');
-            return;
-        }
+        gameState.daily_tracker.chaos_log = damageLog;
+        if (gameState.stats.chaos_warnings >= 3) { triggerGameOver('pup_closures'); return; }
     }
-
-    // BONO DE TERNURA (Solo una vez al día, independientemente de timers)
     if (Math.random() < 0.5) {
         const bonus = Math.floor(gameState.daily_tracker.earned_today * 0.10);
-        if (bonus > 0) {
-            gameState.budget += bonus;
-            showToast(`🐾 ¡BONO DE TERNURA! Clientes felices donaron +$${bonus}`);
-        }
+        if (bonus > 0) { gameState.budget += bonus; showToast(`🐾 ¡BONO DE TERNURA! Clientes felices donaron +$${bonus}`); }
     }
 }
 
 function nextDay() {
     if (checkGoodEndings()) return;
-    
-    // Procesar caos PRIMERO (esto llena chaos_log si hubo incidentes)
-    processDailyPupChaos(); 
-    
-    // Si hubo Game Over, processDailyPupChaos ya detuvo la ejecución.
-    // Si llegamos aquí, seguimos vivos. Mostramos reporte extendido.
-    
+    processDailyPupChaos();
     const reportBody = document.getElementById('day-report-body');
     let currentReport = reportBody.textContent;
-    
-    // Añadir sección de caos si hubo incidentes hoy
     if (gameState.daily_tracker.chaos_log && gameState.daily_tracker.chaos_log.length > 0) {
         currentReport += `\n\n--- 🐾 REPORTE DE CAOS ---\n`;
-        gameState.daily_tracker.chaos_log.forEach(log => {
-            currentReport += `• ${log}\n`;
-        });
+        gameState.daily_tracker.chaos_log.forEach(log => { currentReport += `• ${log}\n`; });
         currentReport += `------------------------\n`;
     }
-    
     reportBody.textContent = currentReport;
-
-    // AHORA sí avanzamos el día y limpiamos
-    gameState.day++;
-    gameState.daily_tracker.start_budget = gameState.budget;
-    gameState.daily_tracker.earned_today = 0;
-    gameState.daily_tracker.chaos_log = []; // Resetear log para el nuevo día
-    gameState.customers = [];
-    gameState.winterAbandonTimer = 0;
-    
-    saveGame();
-    document.getElementById('day-end-modal').classList.remove('hidden');
-    updateUI();
+    gameState.day++; gameState.daily_tracker.start_budget = gameState.budget;
+    gameState.daily_tracker.earned_today = 0; gameState.daily_tracker.chaos_log = [];
+    gameState.customers = []; gameState.winterAbandonTimer = 0;
+    saveGame(); document.getElementById('day-end-modal').classList.remove('hidden'); updateUI();
 }
 
 function processEndOfDay() {
-    const w = gameState.inventory.white_wolfie;
-    const b = gameState.inventory.brown_wolfie;
-    const wi = gameState.inventory.winteruff;
-    const p = gameState.inventory.curious_pups;
+    const w = gameState.inventory.white_wolfie; const b = gameState.inventory.brown_wolfie;
+    const wi = gameState.inventory.winteruff; const p = gameState.inventory.curious_pups;
     const cost = (w*PRES_WHITE)+(b*PRES_BROWN)+(wi*PRES_WINTER)+(p*PRES_PUP_CAGE);
     gameState.budget -= cost;
     if(gameState.budget < 0) { triggerGameOver('bancarrota'); return; }
@@ -446,12 +315,9 @@ function checkQuotaStatus() {
     else { el.textContent = `$${gameState.daily_tracker.earned_today.toFixed(2)} / $30.00`; el.style.color="#fff"; }
 }
 
-// --- VIGILANTE INACTIVIDAD ---
 function resetInactivityTimer() {
     if (inactivityTimer) clearTimeout(inactivityTimer);
-    if (gameState && gameState.shopStatus === 'open') {
-        inactivityTimer = setTimeout(() => triggerGameOver('siesta'), INACTIVITY_LIMIT);
-    }
+    if (gameState && gameState.shopStatus === 'open') { inactivityTimer = setTimeout(() => triggerGameOver('siesta'), INACTIVITY_LIMIT); }
 }
 
 function startWinterChecks() {
@@ -465,3 +331,51 @@ function startWinterChecks() {
 }
 
 function showErrorToast(msg) { console.error(msg); showToast(msg); }
+
+// --- LÓGICA MINIJUEGO GORDINFLÓN (LÍNEA MÓVIL) ---
+function startGordinflonMinigame(mode) {
+    gameState.minigame.active = true;
+    gameState.minigame.progress = 50; // Hambre inicial
+    gameState.minigame.needlePos = 0; // Posición de la línea (0 a 100)
+    gameState.minigame.direction = 1; // 1 = derecha, -1 = izquierda
+    
+    // UI Setup
+    document.getElementById('pc-hint').classList.toggle('hidden', mode !== 'PC');
+    document.getElementById('mobile-hint').classList.toggle('hidden', mode !== 'MOVIL');
+    document.getElementById('btn-start-minigame').classList.toggle('hidden', mode !== 'MOVIL');
+    document.getElementById('btn-pet-action').classList.toggle('hidden', mode === 'MOVIL' && gameState.minigame.active);
+
+    // Bucle del juego
+    gameState.minigame.intervalId = setInterval(() => {
+        if (!gameState.minigame.active) return;
+        gameState.minigame.progress -= 0.033; // Drenado
+        gameState.minigame.needlePos += 2.5 * gameState.minigame.direction; // Movimiento aguja
+        if (gameState.minigame.needlePos >= 100 || gameState.minigame.needlePos <= 0) gameState.minigame.direction *= -1;
+        if (gameState.minigame.progress <= 0) endMinigame(false);
+        if (gameState.minigame.progress >= 100) endMinigame(true);
+        updateMinigameUI();
+    }, 16);
+}
+
+function performPetAction() {
+    if (!gameState.minigame.active) return;
+    const targetStart = 40; const targetEnd = 60; // Zona rosa fija
+    const hit = gameState.minigame.needlePos >= targetStart && gameState.minigame.needlePos <= targetEnd;
+    if (hit) { gameState.minigame.progress += 20; showToast("¡Bien!"); } 
+    else { gameState.minigame.progress -= 10; showToast("¡Fallaste!"); }
+    updateMinigameUI();
+}
+
+function endMinigame(success) {
+    gameState.minigame.active = false; clearInterval(gameState.minigame.intervalId);
+    if (success) onGordinflonSuccess(); else onGordinflonFail();
+}
+
+function updateMinigameUI() {
+    const bar = document.getElementById('gordinflon-bar');
+    const needle = document.getElementById('minigame-needle');
+    if (bar && needle) {
+        bar.style.width = `${Math.max(0, Math.min(100, gameState.minigame.progress))}%`;
+        needle.style.left = `${gameState.minigame.needlePos}%`;
+    }
+}
