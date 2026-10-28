@@ -7,10 +7,19 @@ const COMMUNITY_STYLES = {
 
 const COMMUNITY_NAMES = [
     { name: "Pekita", color: "#FFFFFF", specialTagBorder: "FanmadeG" },
-    { name: "Yocch", color: "#B9CFEB", specialTagBorder: "FanmadeG" }, // Compañera de taller (Azul suave)
-    // Añade más aquí...
+    { name: "Yocch", color: "#B9CFEB", specialTagBorder: "FanmadeG" },
 ];
 
+// --- LOGROS ---
+const ACHIEVEMENTS = {
+    "demo_2027": {
+        id: "demo_2027",
+        title: "¡Has Jugado La Demo!!",
+        desc: "Has sido de las personas especiales que jugaron durante los primeros meses.",
+        isExclusive: true,
+        deadline: "2027-01-01"
+    }
+};
 
 const DEFAULT_STATE = {
     day: 1,
@@ -19,7 +28,7 @@ const DEFAULT_STATE = {
         white_wolfie: 24,
         brown_wolfie: 0,
         winteruff: 0,
-        curious_pups: 0 // NUEVO
+        curious_pups: 0
     },
     shopStatus: 'closed',
     customers: [],
@@ -30,18 +39,31 @@ const DEFAULT_STATE = {
         has_sold_other_types: false,
         chaos_warnings: 0,      
         microwave_incident: false,
-        active_chaos_timers: [] // NUEVO: Array de objetos {dayTriggered, duration}
+        active_chaos_timers: []
     },
-    // ... resto del estado ...
     daily_tracker: { 
         start_budget: 0, 
         earned_today: 0,
-        chaos_log: [] // NUEVO: Historial de daños del día actual
+        chaos_log: []
     },
     
+    // NUEVO: Sistema de Logros
+    achievements: {
+        unlocked: []
+    },
+
     interactionMode: null, 
     petTimer: 0,
     
+    // VARIABLES MINIJUEGO GORDINFLÓN (LÍNEA MÓVIL)
+    minigame: {
+        active: false,
+        progress: 50,
+        needlePos: 0,
+        direction: 1,
+        intervalId: null
+    },
+
     upgrades: { expansion1: false, ac: false, expansion2: false },
     currentMaxSlots: 48,
     
