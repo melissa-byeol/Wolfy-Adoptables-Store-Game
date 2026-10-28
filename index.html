@@ -38,6 +38,9 @@
         <header class="stats-bar">
             <div class="stat-item"><span>Día:</span> <strong id="display-day">1</strong></div>
             <div class="stat-item money"><span>Fondos:</span> <strong id="display-budget">$0.00</strong></div>
+            <!-- NUEVO: Monedas-evento (Wolfichas y Candies) -->
+            <div class="stat-item currency wolfichas" title="Wolfichas: se ganan vendiendo. Sirven para certificar skins."><span>🐺</span> <strong id="display-wolfichas">0</strong></div>
+            <div class="stat-item currency candies hidden" id="candies-display" title="Candies: moneda del evento Halloween atrasado (29 oct – 30 nov)."><span>🍬</span> <strong id="display-candies">0</strong></div>
             <div class="stat-item status"><span>Tienda:</span> <strong id="display-shop-status">CERRADA</strong></div>
             <div class="stat-item quota"><span>Meta:</span> <strong id="display-quota-status">$0.00 / $30.00</strong></div>
             <div class="stat-item chaos hidden" id="chaos-active-display">
@@ -77,6 +80,7 @@
 
                 <div class="shop-controls">
                     <button id="btn-toggle-shop" class="btn success large">ABRIR TIENDA</button>
+                    <button id="btn-open-skin-shop" class="btn info">🎀 SKINS</button>
                 </div>
             </section>
 

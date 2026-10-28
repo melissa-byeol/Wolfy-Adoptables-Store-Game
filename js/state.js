@@ -21,6 +21,30 @@ const ACHIEVEMENTS = {
     }
 };
 
+// --- SKINS (Wolfies Go Studio Certification) ---
+// Cada skin certifica un producto. Costeadas con monedas-evento:
+//   • "wolfichas" : moneda general (temporada actual y futuras).
+//   • "candies"   : moneda de Halloween atrasado — solo ganjable/comprable
+//                    entre el 29/10/2026 y el 30/11/2026 inclusive.
+const SKINS = [
+    { id: "classic", name: "Clásico", emoji: "", product: "white_wolfie", cost: { wolfichas: 5 }, currency: "wolfichas", desc: "El look original del lobito blanco." },
+    { id: "golden", name: "Dorado", emoji: "✨", product: "white_wolfie", cost: { wolfichas: 20 }, currency: "wolfichas", desc: "Pelaje dorado para los básicos más fieles." },
+    { id: "choco", name: "Chocolate", emoji: "🍫", product: "brown_wolfie", cost: { candies: 10 }, currency: "candies", desc: "Gordinflón sabor chocolate. Edición Halloween." },
+    { id: "pumpkin", name: "Calabaza", emoji: "🎃", product: "brown_wolfie", cost: { candies: 15 }, currency: "candies", desc: "Terríficamente tierno. Solo temporada de caramelos." },
+    { id: "snowy", name: "Ventisca", emoji: "🌨️", product: "winteruff", cost: { wolfichas: 25 }, currency: "wolfichas", desc: "Winteruff con escarcha polar permanente." },
+    { id: "spooky", name: "Espeluznante", emoji: "👻", product: "winteruff", cost: { candies: 20 }, currency: "candies", desc: "Un fantasma congelado que se derrite de miedo." },
+    { id: "rainbow", name: "Arcoíris", emoji: "🌈", product: "curious_pups", cost: { wolfichas: 30 }, currency: "wolfichas", desc: "Curiosos de todos los colores a la vez." },
+    { id: "candy_corn", name: "Caramelo Maíz", emoji: "🍬", product: "curious_pups", cost: { candies: 25 }, currency: "candies", desc: "Rayas naranja, blancas y amarillas. ¡Puro Halloween!" }
+];
+
+// Ventana del evento de caramelos (Halloween atrasado): hoy -> 30 nov 2026
+const CANDY_EVENT_START = new Date("2026-10-29T00:00:00");
+const CANDY_EVENT_END = new Date("2026-11-30T23:59:59");
+
+function isCandyEventActive(now = new Date()) {
+    return now >= CANDY_EVENT_START && now <= CANDY_EVENT_END;
+}
+
 // --- DEFINICIÓN DE MODIFIERS (MULTI-SELECT READY) ---
 const AVAILABLE_MODIFIERS = [
     // --- BUENOS ---
@@ -125,6 +149,10 @@ const DEFAULT_STATE = {
         chaos_processed: false
     },
     achievements: { unlocked: [] },
+    // NUEVO: Monedas-evento y skins (Wolfies Go Studio Certification)
+    currencies: { wolfichas: 0, candies: 0 },
+    ownedSkins: [],          // ids de skins compradas
+    equippedSkins: {},       // { producto: skinId } — una skin equipada por producto
     interactionMode: null, 
     petTimer: 0,
     minigame: { active: false, progress: 50, needlePos: 0, direction: 1, intervalId: null },

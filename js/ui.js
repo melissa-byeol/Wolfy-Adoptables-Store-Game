@@ -19,10 +19,25 @@ function updateStoreMapView() {
         ...Array(gameState.inventory.curious_pups).fill('type-pups')
     ];
 
+    // Skins equipadas: se muestran como emoji sobre los estantes (certificación Wolfies Go)
+    const skinEmojis = {
+        'type-white': getSkinEmoji('white_wolfie'),
+        'type-brown': getSkinEmoji('brown_wolfie'),
+        'type-winter': getSkinEmoji('winteruff'),
+        'type-pups': getSkinEmoji('curious_pups')
+    };
+
     for(let i=0; i<gameState.currentMaxSlots; i++) {
         const slot = document.createElement('div');
         slot.classList.add('slot');
-        if(stocks[i]) slot.classList.add('filled', stocks[i]);
+        if(stocks[i]) {
+            slot.classList.add('filled', stocks[i]);
+            const emoji = skinEmojis[stocks[i]];
+            if (emoji) {
+                slot.textContent = emoji;
+                slot.classList.add('has-skin');
+            }
+        }
         grid.appendChild(slot);
     }
     document.getElementById('display-total-stock-map').textContent = stocks.length;
@@ -45,6 +60,10 @@ function renderCustomers() {
         const tag = document.createElement('span');
         tag.classList.add('customer-name-tag');
         let icon = '⬜'; if(cust.desiredType==='brown') icon='🟤'; if(cust.desiredType==='winter') icon='❄️'; if(cust.desiredType==='pups') icon='🐾';
+        // Skin equipada del producto deseado (si existe)
+        const productKeyByIcon = { '⬜': 'white_wolfie', '🟤': 'brown_wolfie', '❄️': 'winteruff', '🐾': 'curious_pups' };
+        const skinEmoji = getSkinEmoji(productKeyByIcon[icon]);
+        if (skinEmoji) icon = skinEmoji;
         
         // Lógica de estilo para la comunidad
         if (cust.isCommunity) {
@@ -117,6 +136,7 @@ function updateUI() {
     renderCustomers();
     updateUpgradesUI();
     updateModifierBadge();
+    updateCurrencyDisplays();
     
     // Alerta bajo stock
     const alert = document.getElementById('low-stock-alert');
@@ -145,6 +165,19 @@ function updateModifierBadge() {
         const mods = (gameState.activeModifiers && gameState.activeModifiers.length) ? gameState.activeModifiers : null;
         strong.textContent = mods ? mods.join(', ') : 'Ninguno';
     }
+}
+
+// --- Monedas-evento en la barra de estadísticas ---
+function updateCurrencyDisplays() {
+    if (!gameState) return;
+    ensureCurrencyState();
+    const wEl = document.getElementById('display-wolfichas');
+    if (wEl) wEl.textContent = gameState.currencies.wolfichas;
+    const cWrap = document.getElementById('candies-display');
+    const cEl = document.getElementById('display-candies');
+    const eventOn = isCandyEventActive();
+    if (cWrap) cWrap.classList.toggle('hidden', !eventOn);
+    if (cEl) cEl.textContent = gameState.currencies.candies;
 }
 
 function updateUpgradesUI() {
@@ -264,6 +297,7 @@ function processPayment(cid, amount) {
     gameState.budget += amount;
     gameState.daily_tracker.earned_today += amount;
     gameState.stats.total_sales_lifetime += cust.cart.length;
+    awardCurrenciesForCart(cust.cart);
     cust.cart.forEach(item => {
         if (item.type === 'winter') gameState.stats.winter_sold_fresh++;
         else if (item.type !== 'white') gameState.stats.has_sold_other_types = true;

@@ -33,6 +33,159 @@ function checkExclusiveAchievements() {
     if (today < deadline) unlockAchievement("demo_2027");
 }
 
+// --- SISTEMA DE MONEDAS-EVENTO Y SKINS (Wolfies Go Studio Certification) ---
+function ensureCurrencyState() {
+    if (!gameState.currencies) gameState.currencies = { wolfichas: 0, candies: 0 };
+    if (typeof gameState.currencies.wolfichas !== 'number') gameState.currencies.wolfichas = 0;
+    if (typeof gameState.currencies.candies !== 'number') gameState.currencies.candies = 0;
+    if (!Array.isArray(gameState.ownedSkins)) gameState.ownedSkins = [];
+    if (!gameState.equippedSkins || typeof gameState.equippedSkins !== 'object') gameState.equippedSkins = {};
+}
+
+function addCurrency(currency, amount) {
+    ensureCurrencyState();
+    if (!gameState.currencies.hasOwnProperty(currency) || amount <= 0) return;
+    gameState.currencies[currency] += Math.floor(amount);
+    updateCurrencyDisplays();
+}
+
+// Wolfichas: se ganan con cada venta (1 por unidad vendida).
+// Candies: solo durante el evento de Halloween atrasado (29 oct – 30 nov).
+function awardCurrenciesForCart(cart) {
+    if (!cart || cart.length === 0) return;
+    const units = cart.length;
+    addCurrency('wolfichas', units);
+    if (isCandyEventActive()) {
+        // 1 candy por venta + bonus por unidades grandes (lotes de 6+ = golosina extra)
+        const bonus = units >= 6 ? 2 : 0;
+        addCurrency('candies', 1 + bonus);
+    }
+}
+
+function buySkin(skinId) {
+    resetInactivityTimer();
+    ensureCurrencyState();
+    const skin = SKINS.find(s => s.id === skinId);
+    if (!skin) { showToast("❌ Skin inexistente."); return; }
+    if (gameState.ownedSkins.includes(skinId)) { equipSkin(skinId); return; }
+
+    // Las skins de caramelos solo se pueden comprar durante el evento
+    if (skin.currency === 'candies' && !isCandyEventActive()) {
+        showModal("🎃 Evento terminado", "Los Candies solo se consiguen del 29 de octubre al 30 de noviembre. ¡Vuelve para la próxima temporada!");
+        return;
+    }
+
+    const cost = skin.cost[skin.currency] || 0;
+    if (gameState.currencies[skin.currency] < cost) {
+        const icon = skin.currency === 'candies' ? '🍬' : '🐺';
+        showToast(`❌ Te faltan ${icon} ${skin.currency}. Necesitas ${cost}, tienes ${gameState.currencies[skin.currency]}.`);
+        return;
+    }
+
+    gameState.currencies[skin.currency] -= cost;
+    gameState.ownedSkins.push(skinId);
+    gameState.equippedSkins[skin.product] = skinId;
+    showToast(`✅ ¡Certificada! Skin "${skin.name}" comprada y equipada.`);
+    saveGame();
+    renderShopModal();
+    updateUI();
+}
+
+function equipSkin(skinId) {
+    ensureCurrencyState();
+    const skin = SKINS.find(s => s.id === skinId);
+    if (!skin || !gameState.ownedSkins.includes(skinId)) return;
+    if (skin.currency === 'candies' && !isCandyEventActive() && !gameState.ownedSkins.includes(skinId)) return;
+    gameState.equippedSkins[skin.product] = skinId;
+    saveGame();
+    renderShopModal();
+    updateUI();
+}
+
+function getSkinEmoji(productKey) {
+    ensureCurrencyState();
+    const id = gameState.equippedSkins[productKey];
+    if (!id) return "";
+    const skin = SKINS.find(s => s.id === id);
+    return skin ? skin.emoji : "";
+}
+
+// --- TIENDA DE SKINS (modal genérico reutilizado) ---
+function openSkinShop() {
+    if (!gameState) return;
+    resetInactivityTimer();
+    renderShopModal();
+    document.getElementById('message-modal').classList.remove('hidden');
+}
+
+function renderShopModal() {
+    ensureCurrencyState();
+    const title = document.getElementById('modal-title');
+    const body = document.getElementById('modal-body');
+    const btnClose = document.getElementById('btn-close-modal');
+    if (!title || !body) return;
+
+    const wolfichas = gameState.currencies.wolfichas;
+    const candies = gameState.currencies.candies;
+    const eventOn = isCandyEventActive();
+    const eventLabel = eventOn ? "🍬 EVENTO ACTIVO (hasta 30/11/2026)" : "🍬 Evento de caramelos: TERMINADO";
+
+    title.textContent = "🎀 Tienda de Skins — Certificación Wolfies Go";
+    body.innerHTML = '';
+
+    const wallet = document.createElement('div');
+    wallet.className = 'skin-wallet';
+    wallet.innerHTML = `<strong>🐺 Wolfichas:</strong> ${wolfichas} &nbsp;|&nbsp; <strong>🍬 Candies:</strong> ${candies}<br><small>${eventLabel}</small>`;
+    body.appendChild(wallet);
+
+    const grid = document.createElement('div');
+    grid.className = 'skin-grid';
+
+    SKINS.forEach(skin => {
+        const owned = gameState.ownedSkins.includes(skin.id);
+        const equipped = gameState.equippedSkins[skin.product] === skin.id;
+        const lockedByEvent = skin.currency === 'candies' && !eventOn && !owned;
+        const productName = productDisplayName(skin.product);
+
+        const card = document.createElement('div');
+        card.className = 'skin-card' + (equipped ? ' equipped' : '') + (lockedByEvent ? ' locked' : '');
+        card.innerHTML = `<div class="skin-preview">${skin.emoji || '⬜'}</div>
+                          <strong>${skin.name}</strong>
+                          <small>${productName}</small>
+                          <small class="skin-desc">${skin.desc}</small>
+                          <small class="skin-price">${skin.currency === 'candies' ? '🍬' : '🐺'} ${skin.cost[skin.currency]}</small>`;
+        const action = document.createElement('button');
+        action.className = 'btn small ' + (equipped ? 'ghost' : owned ? 'success' : 'primary');
+        action.textContent = equipped ? 'Equipada ✓' : owned ? 'Equipar' : lockedByEvent ? 'Fuera de temporada' : 'Comprar';
+        action.disabled = equipped || lockedByEvent;
+        action.onclick = () => { owned ? equipSkin(skin.id) : buySkin(skin.id); };
+        card.appendChild(action);
+        grid.appendChild(card);
+    });
+
+    body.appendChild(grid);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'btn primary';
+    closeBtn.style.marginTop = '10px';
+    closeBtn.textContent = 'Cerrar Tienda';
+    closeBtn.onclick = () => document.getElementById('message-modal').classList.add('hidden');
+    body.appendChild(closeBtn);
+
+    // Evitar que el listener genérico de main.js cierre sin re-render raro: simplemente oculta.
+    if (btnClose) btnClose.onclick = () => document.getElementById('message-modal').classList.add('hidden');
+}
+
+function productDisplayName(key) {
+    switch (key) {
+        case 'white_wolfie': return '⬜ Básico';
+        case 'brown_wolfie': return '🟤 Gordinflón';
+        case 'winteruff': return '❄️ Winteruff';
+        case 'curious_pups': return '🐾 Curiosos';
+        default: return key;
+    }
+}
+
 // --- INICIALIZACIÓN CON MÚLTIPLES MODIFIERS ---
 function initNewGame(selectedModifierIds = []) {
     // VALIDACIÓN CRÍTICA: Asegurar que siempre sea un Array
@@ -224,6 +377,7 @@ function gameTick() {
                             gameState.budget += finalTotal; 
                             gameState.daily_tracker.earned_today += finalTotal; 
                             gameState.stats.total_sales_lifetime += cust.cart.length; 
+                            awardCurrenciesForCart(cust.cart);
                             
                             // Actualizar stats para logros/caos
                             cust.cart.forEach(item => {
@@ -438,6 +592,9 @@ function normalizeLoadedState() {
             while (excess > 0 && gameState.inventory[k] > 0) { gameState.inventory[k]--; excess--; }
         }
     }
+
+    // NUEVO: normalizar monedas-evento / skins (saves anteriores a la actualización)
+    ensureCurrencyState();
 }
 
 // --- GESTIÓN STOCK CON DESCUENTOS ACUMULADOS ---
