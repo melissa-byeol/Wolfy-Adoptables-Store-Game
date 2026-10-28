@@ -3,21 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador Wolfies - V5 Caos & Dominancia</title>
+    <title>Simulador Wolfies - V5.2 Modifiers</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        /* Estilos específicos para el Minijuego Híbrido */
-        .minigame-track { position: relative; width: 100%; height: 30px; background: #222; border-radius: 15px; overflow: hidden; margin: 15px 0; border: 2px solid var(--accent-red); }
-        .minigame-fill { height: 100%; width: 50%; background: linear-gradient(90deg, #ff9800, #f44336); transition: width 0.1s linear; opacity: 0.3; }
-        .minigame-target { position: absolute; top: 0; bottom: 0; width: 20%; left: 40%; background: rgba(255, 105, 180, 0.6); border-left: 2px solid white; border-right: 2px solid white; box-shadow: 0 0 15px rgba(255, 105, 180, 0.8); z-index: 1; }
-        .minigame-needle { position: absolute; top: -5px; bottom: -5px; width: 4px; background: #fff; left: 0%; box-shadow: 0 0 5px #fff; z-index: 2; }
-        
-        .progress-track { width: 100%; height: 20px; background: #444; border-radius: 10px; overflow: hidden; margin: 15px 0; }
-        .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #ffeb3b, #f44336); transition: width 0.1s linear; }
-        
-        .mode-selector { display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; }
-        .controls-hint { font-size: 0.85em; color: #aaa; margin-top: 10px; font-style: italic; }
-    </style>
 </head>
 <body>
 
@@ -25,8 +12,24 @@
     <div id="start-screen" class="screen active">
         <h1>TIENDA DE WOLFIES</h1>
         <p>Gestiona inventario, evita mordiscos y sobrevive al caos adorable.</p>
+        
         <button id="btn-new-game" class="btn primary">Nueva Partida</button>
         <button id="btn-load-game" class="btn secondary" disabled>Cargar Partida</button>
+    </div>
+
+    <!-- NUEVO: Pantalla Selector de Modifiers -->
+    <div id="modifier-screen" class="screen hidden">
+        <h2>Selecciona tu Estilo de Juego</h2>
+        <p>Elige un modificador. Cada uno cambia las reglas.</p>
+        
+        <div id="modifier-list" class="modifier-grid">
+            <!-- Generado por JS -->
+        </div>
+
+        <div class="controls-bar">
+            <button id="btn-back-menu" class="btn ghost">Volver al Menú</button>
+            <button id="btn-start-with-modifier" class="btn success large" disabled>Iniciar Partida</button>
+        </div>
     </div>
 
     <!-- Pantalla Principal -->
@@ -37,11 +40,12 @@
             <div class="stat-item money"><span>Fondos:</span> <strong id="display-budget">$0.00</strong></div>
             <div class="stat-item status"><span>Tienda:</span> <strong id="display-shop-status">CERRADA</strong></div>
             <div class="stat-item quota"><span>Meta:</span> <strong id="display-quota-status">$0.00 / $30.00</strong></div>
-            <!-- NUEVO: Contador de Logros -->
-            <div class="stat-item"><span>Logros:</span> <strong id="display-achievements">0</strong></div>
-            <!-- Indicador de Caos Activo -->
             <div class="stat-item chaos hidden" id="chaos-active-display">
                 <span>🐾 Caos:</span> <strong>0</strong>
+            </div>
+            <!-- Indicador de Modifier Activo -->
+            <div class="stat-item modifier-badge" id="active-modifier-display">
+                <span>Mod:</span> <strong>Ninguno</strong>
             </div>
         </header>
 
@@ -106,7 +110,6 @@
                             <button id="btn-buy-max-winter" class="btn small info">Max</button>
                         </div>
                     </div>
-                    <!-- Cachorritos Curiosos -->
                     <div class="restock-item">
                         <span>🐾 Curiosos ($60/12j)</span>
                         <div class="btn-group">
@@ -149,41 +152,23 @@
         </section>
 
         <!-- MODALES -->
-
-        <!-- Interacción Peligro (Gordinflón) - VERSIÓN HÍBRIDA -->
+        <!-- Interacción Peligro (Gordinflón) -->
         <div id="interaction-overlay" class="modal hidden">
             <div class="modal-content danger-ui">
-                <h2 style="color: var(--accent-red)">🐺 LOBITO GORDINFLÓN</h2>
-                <p id="interaction-instruction">¡Calma su hambre o te morderá!</p>
-                
-                <!-- Selector de Modo -->
-                <div id="mode-selector" class="mode-selector">
-                    <button id="btn-mode-pc" class="btn small info">Empezar (PC)</button>
-                    <button id="btn-mode-normal" class="btn small warning">Empezar (Normal)</button>
-                </div>
-
-                <!-- UI Timing (Línea Móvil) -->
-                <div id="ui-timing" class="hidden">
-                    <div class="minigame-track">
-                        <div id="gordinflon-bar" class="minigame-fill"></div>
-                        <div class="minigame-target"></div>
-                        <div id="minigame-needle" class="minigame-needle"></div>
-                    </div>
-                    <div id="hint-timing" class="controls-hint">Presiona <kbd>P</kbd> o toca "ACARICIAR" cuando la línea esté en la zona rosa.</div>
-                    <button id="btn-pet-action" class="btn success large">ACARICIAR</button>
-                </div>
-
-                <!-- UI Mantener (Clásico) -->
-                <div id="ui-hold" class="hidden">
+                <h2 style="color: var(--accent-red)">🐺 PRECAUCIÓN</h2>
+                <p id="interaction-instruction">Instrucciones...</p>
+                <div id="pet-bar-container" class="hidden">
                     <div class="progress-track"><div id="pet-progress-bar" class="progress-fill"></div></div>
-                    <div id="hint-hold" class="controls-hint">Mantén presionado <kbd>P</kbd> o el botón para llenar la barra.</div>
-                    <button id="btn-hold-action" class="btn success large">MANTENER PRESIONADO</button>
+                    <small>Mantén la calma...</small>
                 </div>
-
+                <div id="pc-hint" class="hidden">Presiona P cuando la línea esté en la zona rosa.</div>
+                <div id="mobile-hint" class="hidden">Toca ACARICIAR cuando la línea esté en la zona rosa.</div>
+                <button id="btn-start-minigame" class="btn primary hidden">Empezar (Normal)</button>
+                <button id="btn-pet-action" class="btn success large hidden">ACARICIAR</button>
             </div>
         </div>
 
-        <!-- Modal Winteruff / Jefe (Urgencia) -->
+        <!-- Modal Winteruff / Jefe -->
         <div id="winteruff-modal" class="modal hidden">
             <div class="modal-content winteruff-ui">
                 <h2 id="wu-title">❄️ VENTA URGENTE</h2>
@@ -243,7 +228,7 @@
             </div>
         </div>
 
-        <!-- Modal Genérico / Game Over / Victoria -->
+        <!-- Modal Genérico -->
         <div id="message-modal" class="modal hidden">
             <div class="modal-content">
                 <h2 id="modal-title">Mensaje</h2>
