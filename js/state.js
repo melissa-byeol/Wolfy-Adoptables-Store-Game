@@ -1,8 +1,8 @@
 // --- CONFIGURACIÓN DE LA COMUNIDAD ---
 const COMMUNITY_STYLES = {
-    "FanmadeG": { border: "#ff69b4", glow: "#ff69b4" }, // Amiga de la comunidad (Rosa)
+    "FanmadeG": { border: "#ff69b4", glow: "#ff69b4" }, 
     "FanmadeB": { border: "#69b4ff", glow: "#69b4ff" },
-    "Default":   { border: "#ffffff", glow: "#ffffff" } // Por defecto
+    "Default":  { border: "#ffffff", glow: "#ffffff" } 
 };
 
 const COMMUNITY_NAMES = [
@@ -21,6 +21,80 @@ const ACHIEVEMENTS = {
     }
 };
 
+// --- NUEVO: DEFINICIÓN DE MODIFIERS ---
+const AVAILABLE_MODIFIERS = [
+    // --- BUENOS ---
+    {
+        id: "good_offers",
+        name: "Good Offers",
+        tier: "GOOD",
+        description: "-20% Wolfichas. Pop-ups de descuento (10-50%) y Chance VIP (x2 dinero).",
+        effect: (state) => {
+            state.modifierFlags.hasDiscounts = true;
+            state.modifierFlags.vipChance = 0.05; // 5% chance de cliente VIP
+        }
+    },
+    {
+        id: "black_friday",
+        name: "Black Friday",
+        tier: "GOOD",
+        description: "-10% Wolfichas. Spawn rate x2. Cola máxima ampliada a 30.",
+        effect: (state) => {
+            state.spawnRateMultiplier = 2.0;
+            state.maxQueueLength = 30;
+            state.baseBudgetBonus = -0.10; // Aplica descuento global si quieres, o solo en ofertas
+        }
+    },
+    // --- NEUTRALES ---
+    {
+        id: "tech_failures",
+        name: "Fallas Técnicas Estúpidas",
+        tier: "NEUTRAL",
+        description: "+5% Wolfichas. El stock tarda 1-5 segundos extra en llegar tras comprar.",
+        effect: (state) => {
+            state.modifierFlags.deliveryDelay = true;
+        }
+    },
+    {
+        id: "complex_decisions",
+        name: "Decisiones Complicadas",
+        tier: "NEUTRAL",
+        description: "+15% Wolfichas. Los clientes suelen pedir mezclas de mascotas.",
+        effect: (state) => {
+            state.modifierFlags.mixedOrders = true;
+        }
+    },
+    // --- MALOS ---
+    {
+        id: "database_hack",
+        name: "Hackeo A La Base De Datos",
+        tier: "BAD",
+        description: "+30% Wolfichas. Precios ocultos (calcular manual) y 5% fallo delivery (pierdes dinero).",
+        effect: (state) => {
+            state.modifierFlags.hidePrices = true;
+            state.modifierFlags.deliveryFailChance = 0.05;
+        }
+    },
+    {
+        id: "greedy_tax",
+        name: "Impuesto Al Ahorro",
+        tier: "BAD",
+        description: "+25% Wolfichas. Si terminas el día con >$1000, pierdes el 10% como 'taxe de lujo'.",
+        effect: (state) => {
+            state.modifierFlags.luxuryTax = true;
+        }
+    },
+    {
+        id: "chaotic_walkers",
+        name: "Caminantes Caóticos",
+        tier: "BAD",
+        description: "+20% Wolfichas. Los clientes se mueven más lento y a veces retroceden confundidos.",
+        effect: (state) => {
+            state.modifierFlags.slowWalkers = true;
+        }
+    }
+];
+
 const DEFAULT_STATE = {
     day: 1,
     budget: 10.00,
@@ -32,44 +106,45 @@ const DEFAULT_STATE = {
     },
     shopStatus: 'closed',
     customers: [],
-    stats: { 
-        total_sales_lifetime: 0, 
+    stats: {
+        total_sales_lifetime: 0,
         days_survived: 0,
         winter_sold_fresh: 0,
         has_sold_other_types: false,
-        chaos_warnings: 0,      
+        chaos_warnings: 0,
         microwave_incident: false,
         active_chaos_timers: []
     },
-    daily_tracker: { 
-        start_budget: 0, 
+    daily_tracker: {
+        start_budget: 0,
         earned_today: 0,
         chaos_log: []
     },
-    
-    // NUEVO: Sistema de Logros
-    achievements: {
-        unlocked: []
-    },
-
+    achievements: { unlocked: [] },
     interactionMode: null, 
     petTimer: 0,
-    
-    // VARIABLES MINIJUEGO GORDINFLÓN (LÍNEA MÓVIL)
-    minigame: {
-        active: false,
-        progress: 50,
-        needlePos: 0,
-        direction: 1,
-        intervalId: null
-    },
-
+    minigame: { active: false, progress: 50, needlePos: 0, direction: 1, intervalId: null },
     upgrades: { expansion1: false, ac: false, expansion2: false },
     currentMaxSlots: 48,
-    
     biteCounter: 0,
     winterAbandonTimer: 0,
-    lastBiteTime: 0
+    lastBiteTime: 0,
+    
+    // NUEVO: Estado de Modificadores
+    selectedModifier: 'none',
+    spawnRateMultiplier: 1.0,
+    maxQueueLength: 8,
+    modifierFlags: {
+        hasDiscounts: false,
+        vipChance: 0,
+        deliveryDelay: false,
+        mixedOrders: false,
+        hidePrices: false,
+        deliveryFailChance: 0,
+        luxuryTax: false,
+        slowWalkers: false
+    },
+    baseBudgetBonus: 0 // Para Black Friday u otros ajustes directos
 };
 
 let gameState = null;
