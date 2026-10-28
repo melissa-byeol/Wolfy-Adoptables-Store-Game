@@ -1,4 +1,4 @@
-// js/ui.js - V5 CAOS & DOMINANCIA
+// js/ui.js - V5 CAOS & DOMINANCIA + COMUNIDAD + MINIJUEVO
 
 function initStoreGrid() {}
 
@@ -45,6 +45,18 @@ function renderCustomers() {
         const tag = document.createElement('span');
         tag.classList.add('customer-name-tag');
         let icon = '⬜'; if(cust.desiredType==='brown') icon='🟤'; if(cust.desiredType==='winter') icon='❄️'; if(cust.desiredType==='pups') icon='🐾';
+        
+        // Lógica de estilo para la comunidad
+        if (cust.isCommunity) {
+            const styleConfig = COMMUNITY_STYLES[cust.borderType] || COMMUNITY_STYLES["Default"];
+            tag.style.color = cust.customColor;
+            tag.style.fontWeight = "bold";
+            tag.style.border = `1px solid ${styleConfig.border}`; 
+            tag.style.boxShadow = `0 0 5px ${styleConfig.glow}`;
+            tag.style.padding = "1px 4px";
+            tag.style.backgroundColor = "rgba(0,0,0,0.8)";
+        }
+
         tag.textContent = `${cust.name.split(' ')[0]} ${icon}x${cust.desiredQty}`;
         blob.appendChild(tag);
 
@@ -75,6 +87,11 @@ function renderCustomers() {
         if(cust.state === 'waiting_in_queue') {
             const item = document.createElement('div');
             item.classList.add('queue-item');
+            if (cust.isCommunity) {
+                const styleConfig = COMMUNITY_STYLES[cust.borderType] || COMMUNITY_STYLES["Default"];
+                item.style.border = `1px solid ${styleConfig.border}`;
+                item.style.boxShadow = `inset 0 0 5px ${styleConfig.glow}`;
+            }
             const total = cust.cart.reduce((s,i)=>s+i.price,0);
             item.innerHTML = `<span>${cust.name.split(' ')[0]}</span><span class="price">$${total.toFixed(2)}</span>`;
             if(!hasAuto || cust.hasDanger || cust.hasWinter || cust.isBoss) item.onclick = () => attemptCheckout(cust.id);
@@ -103,7 +120,7 @@ function updateUI() {
     const totalStock = Object.values(gameState.inventory).reduce((a,b)=>a+b,0);
     if(totalStock < 12) alert.classList.remove('hidden'); else alert.classList.add('hidden');
 
-    // NUEVO: Indicador Caos Activo
+    // Indicador Caos Activo
     const chaosDisplay = document.getElementById('chaos-active-display');
     if (chaosDisplay) {
         const activeCount = gameState.stats.active_chaos_timers.filter(t => t.expiresOn > gameState.day).length;
@@ -182,13 +199,12 @@ function showWinteruffPayModal(cust) {
     m.classList.remove('hidden');
 }
 
-// Modal especial para EL JEFE
 function showBossPayModal(cust) {
     const m = document.getElementById('winteruff-modal');
     const bar = m.querySelector('#wu-heat-bar');
     const priceEl = m.querySelector('#wu-price-display');
-    const limit = gameState.upgrades.ac ? 9000 : 3000; // Menos tiempo para el jefe
-    let elapsed = 0; let price = PRICE_WINTER_FRESH * 6; // $180 fresco
+    const limit = gameState.upgrades.ac ? 9000 : 3000;
+    let elapsed = 0; let price = PRICE_WINTER_FRESH * 6;
     
     m.querySelector('#wu-title').textContent = "👑 EL JEFE EXIGE ATENCIÓN";
     m.querySelector('#wu-subtitle').textContent = "¡3 segundos o pierdes $144!";
@@ -218,67 +234,41 @@ function processPayment(cid, amount) {
     gameState.budget += amount;
     gameState.daily_tracker.earned_today += amount;
     gameState.stats.total_sales_lifetime += cust.cart.length;
-
-    // Actualizar stats para finales y caos
     cust.cart.forEach(item => {
         if (item.type === 'winter') gameState.stats.winter_sold_fresh++;
         else if (item.type !== 'white') gameState.stats.has_sold_other_types = true;
-        if (item.type === 'pups') activateChaosTimer(); // ACTIVAR CAOS AL VENDER
+        if (item.type === 'pups') activateChaosTimer();
     });
-
     cust.state = 'leaving_happy'; cust.progress = 100;
     hideAllModals(); updateUI(); renderCustomers();
 }
 
-// --- PELIGRO GORDINFLÓN ---
+// --- PELIGRO GORDINFLÓN (MINIJUEVO) ---
 let currentDangerCust = null;
 function startDangerSequence(cust) {
     currentDangerCust = cust;
     const ov = document.getElementById('interaction-overlay');
     ov.classList.remove('hidden');
-    document.getElementById('interaction-instruction').innerHTML = `⚠️ ¡PELIGRO!<br>Presiona <kbd>G</kbd> para agarrar.`;
-    gameState.interactionMode = 'idle_danger'; gameState.petTimer = 0;
-}
-function handleDangerKey(k) {
-    if(!currentDangerCust) return; k = k.toLowerCase();
-    if(gameState.interactionMode === 'idle_danger' && k==='g') {
-        gameState.interactionMode = 'grabbing';
-        document.getElementById('interaction-instruction').innerHTML = `Agarrado. Mantén <kbd>P</kbd> 4s.`;
-        startPetting();
+    
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+        document.getElementById('mobile-hint').classList.remove('hidden'); document.getElementById('pc-hint').classList.add('hidden');
+        document.getElementById('btn-start-minigame').classList.remove('hidden'); document.getElementById('btn-pet-action').classList.add('hidden');
+    } else {
+        document.getElementById('pc-hint').classList.remove('hidden'); document.getElementById('mobile-hint').classList.add('hidden');
+        document.getElementById('btn-start-minigame').classList.add('hidden'); startGordinflonMinigame('PC');
     }
 }
-function handleDangerKeyUp(k) {
-    if(!currentDangerCust) return; k = k.toLowerCase();
-    if(gameState.interactionMode === 'petting' && k==='p') failDanger("Soltaste pronto.");
-    if(gameState.interactionMode === 'grabbing' && k==='g') failDanger("Perdiste agarre.");
+
+function onGordinflonSuccess() {
+    document.getElementById('interaction-overlay').classList.add('hidden'); showToast("✅ Lobito calmado. Procediendo al cobro...");
+    if (currentDangerCust) { const cust = currentDangerCust; currentDangerCust = null; const types = new Set(cust.cart.map(i => i.type)); if (types.size === 1) showQuickPayModal(cust); else showManualCalcModal(cust); }
 }
-let petInt = null;
-function startPetting() {
-    clearInterval(petInt); gameState.interactionMode = 'petting';
-    document.getElementById('pet-bar-container').classList.remove('hidden');
-    petInt = setInterval(() => {
-        gameState.petTimer += 0.1;
-        document.getElementById('pet-progress-bar').style.width = `${Math.min((gameState.petTimer/4)*100,100)}%`;
-        if(gameState.petTimer >= 4) succeedDanger();
-    }, 100);
-}
-function succeedDanger() {
-    clearInterval(petInt);
+
+function onGordinflonFail() {
     document.getElementById('interaction-overlay').classList.add('hidden');
-    document.getElementById('pet-bar-container').classList.add('hidden');
-    showToast("✅ Calma restaurada.");
-    const cust = currentDangerCust; currentDangerCust = null;
-    const types = new Set(cust.cart.map(i=>i.type));
-    if(types.size===1) showQuickPayModal(cust); else showManualCalcModal(cust);
-}
-function failDanger(reason) {
-    clearInterval(petInt);
-    document.getElementById('interaction-overlay').classList.add('hidden');
-    document.getElementById('pet-bar-container').classList.add('hidden');
-    const now = Date.now(); gameState.biteCounter++;
-    if (now - gameState.lastBiteTime > 30000) gameState.biteCounter = 1;
-    gameState.lastBiteTime = now;
-    showToast(`❌ ${reason} (${gameState.biteCounter}/10)`);
+    const now = Date.now(); gameState.biteCounter++; if (now - gameState.lastBiteTime > 30000) { gameState.biteCounter = 1; } gameState.lastBiteTime = now;
+    showToast(`⚠️ ¡Te ha mordido! (Mordiscos: ${gameState.biteCounter}/10)`);
     if (currentDangerCust) { currentDangerCust.state = 'leaving_angry'; currentDangerCust.progress = 100; renderCustomers(); }
     currentDangerCust = null;
     if (gameState.biteCounter >= 10) triggerGameOver('fatality');
