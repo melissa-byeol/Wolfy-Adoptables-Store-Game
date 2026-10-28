@@ -21,7 +21,7 @@ const ACHIEVEMENTS = {
     }
 };
 
-// --- NUEVO: DEFINICIÓN DE MODIFIERS ---
+// --- DEFINICIÓN DE MODIFIERS (MULTI-SELECT READY) ---
 const AVAILABLE_MODIFIERS = [
     // --- BUENOS ---
     {
@@ -31,7 +31,8 @@ const AVAILABLE_MODIFIERS = [
         description: "-20% Wolfichas. Pop-ups de descuento (10-50%) y Chance VIP (x2 dinero).",
         effect: (state) => {
             state.modifierFlags.hasDiscounts = true;
-            state.modifierFlags.vipChance = 0.05; // 5% chance de cliente VIP
+            state.modifierFlags.vipChance = Math.max(state.modifierFlags.vipChance || 0, 0.05); // No duplicar chance, tomar max
+            state.priceMultiplier = Math.min(state.priceMultiplier || 1.0, 0.8); // Tomar el mejor descuento
         }
     },
     {
@@ -40,9 +41,9 @@ const AVAILABLE_MODIFIERS = [
         tier: "GOOD",
         description: "-10% Wolfichas. Spawn rate x2. Cola máxima ampliada a 30.",
         effect: (state) => {
-            state.spawnRateMultiplier = 2.0;
-            state.maxQueueLength = 30;
-            state.baseBudgetBonus = -0.10; // Aplica descuento global si quieres, o solo en ofertas
+            state.spawnRateMultiplier = (state.spawnRateMultiplier || 1.0) * 2.0;
+            state.maxQueueLength = Math.max(state.maxQueueLength || 8, 30);
+            state.priceMultiplier = Math.min(state.priceMultiplier || 1.0, 0.9); // Si ya tiene good_offers (0.8), se queda en 0.8
         }
     },
     // --- NEUTRALES ---
@@ -72,7 +73,7 @@ const AVAILABLE_MODIFIERS = [
         description: "+30% Wolfichas. Precios ocultos (calcular manual) y 5% fallo delivery (pierdes dinero).",
         effect: (state) => {
             state.modifierFlags.hidePrices = true;
-            state.modifierFlags.deliveryFailChance = 0.05;
+            state.modifierFlags.deliveryFailChance = Math.max(state.modifierFlags.deliveryFailChance || 0, 0.05);
         }
     },
     {
@@ -130,10 +131,11 @@ const DEFAULT_STATE = {
     winterAbandonTimer: 0,
     lastBiteTime: 0,
     
-    // NUEVO: Estado de Modificadores
-    selectedModifier: 'none',
+    // NUEVO: Estado de Múltiples Modificadores
+    activeModifiers: [], // Array de IDs string
     spawnRateMultiplier: 1.0,
     maxQueueLength: 8,
+    priceMultiplier: 1.0, // Para descuentos globales
     modifierFlags: {
         hasDiscounts: false,
         vipChance: 0,
@@ -143,8 +145,7 @@ const DEFAULT_STATE = {
         deliveryFailChance: 0,
         luxuryTax: false,
         slowWalkers: false
-    },
-    baseBudgetBonus: 0 // Para Black Friday u otros ajustes directos
+    }
 };
 
 let gameState = null;
