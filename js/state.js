@@ -73,6 +73,8 @@ const AVAILABLE_MODIFIERS = [
         description: "+30% Wolfichas. Precios ocultos (calcular manual) y 5% fallo delivery.",
         effect: (state) => {
             state.modifierFlags.hidePrices = true;
+            // FIX: el flag hidePrices nunca se usaba en la UI. Se marca para
+            // que updateUI() oculte los precios de los estantes/recibos simples.
             state.modifierFlags.deliveryFailChance = Math.max(state.modifierFlags.deliveryFailChance || 0, 0.05);
         }
     },
@@ -119,7 +121,8 @@ const DEFAULT_STATE = {
     daily_tracker: {
         start_budget: 0,
         earned_today: 0,
-        chaos_log: []
+        chaos_log: [],
+        chaos_processed: false
     },
     achievements: { unlocked: [] },
     interactionMode: null, 

@@ -64,7 +64,9 @@ function initNewGame(selectedModifierIds = []) {
     gameState.shopStatus = 'closed'; 
     gameState.currentMaxSlots = BASE_MAX_SLOTS;
     
-    checkExclusiveAchievements(); 
+    checkExclusiveAchievements();
+    // FIX: normalizar estado (badge de modifiers, etc.) antes del primer render
+    normalizeLoadedState();
     updateUI();
     
     let modsSummary = selectedModifierIds.length > 0 
@@ -81,13 +83,19 @@ function toggleShopState() {
 }
 
 function openShop() {
-    if (gameState.shopStatus === 'open') return; // FIX: Espacio eliminado
-    
+    if (gameState.shopStatus === 'open') return;
+
+    // FIX: limpiar intervalos huérfanos por si se re-abre tras un game over
+    if (gameInterval) { clearInterval(gameInterval); gameInterval = null; }
+    if (winterCheckInterval) { clearInterval(winterCheckInterval); winterCheckInterval = null; }
+
     gameState.shopStatus = 'open'; 
     gameState.customers = [];
     
-    document.getElementById('btn-toggle-shop').textContent = "CERRAR TIENDA";
-    document.getElementById('btn-toggle-shop').classList.replace('success', 'danger');
+    const btnToggleEl = document.getElementById('btn-toggle-shop');
+    btnToggleEl.textContent = "CERRAR TIENDA";
+    // FIX: classList.replace() no hacía nada si el botón no tenía exactamente la clase esperada
+    btnToggleEl.classList.remove('success'); btnToggleEl.classList.add('danger');
     document.getElementById('display-shop-status').textContent = "ABIERTA";
     document.getElementById('display-shop-status').className = "stat-item status-open";
 
@@ -110,7 +118,9 @@ function closeShop() {
     processEndOfDay();
     
     document.getElementById('btn-toggle-shop').textContent = "ABRIR TIENDA";
-    document.getElementById('btn-toggle-shop').classList.replace('danger', 'success');
+    // FIX: reemplazar classList.replace() por remove/add fiables
+    document.getElementById('btn-toggle-shop').classList.remove('danger');
+    document.getElementById('btn-toggle-shop').classList.add('success');
     document.getElementById('display-shop-status').textContent = "CERRADA";
     document.getElementById('display-shop-status').className = "stat-item status-closed";
 }
@@ -199,12 +209,17 @@ function gameTick() {
                         if (cust.autoTimer > 2) { 
                             const total = cust.cart.reduce((sum, item) => sum + item.price, 0); 
                             
+                            // FIX: aplicar el multiplicador de precio global (descuentos de modifiers)
+                            let finalTotal = total * (gameState.priceMultiplier || 1.0);
+
                             // Bonus VIP (Good Offers Modifier)
-                            let finalTotal = total;
                             if (cust.isVIP) {
-                                finalTotal = total * 2;
+                                finalTotal = finalTotal * 2;
                                 showToast(`💎 ¡CLIENTE VIP! Ganancia x2: $${finalTotal.toFixed(2)}`);
                             }
+
+                            // FIX: redondear a centavos para evitar errores de punto flotante
+                            finalTotal = Math.round(finalTotal * 100) / 100;
 
                             gameState.budget += finalTotal; 
                             gameState.daily_tracker.earned_today += finalTotal; 
@@ -376,9 +391,52 @@ function attemptCheckout(customerId) {
     else if (cust.hasDanger) startDangerSequence(cust);
     else if (cust.hasWinter) showWinteruffPayModal(cust);
     else { 
-        const types = new Set(cust.cart.map(i => i.type)); 
+        // FIX: el carrito puede estar vacío (cliente sin compras); antes esto abría
+        // un modal de pago con total $0. Ahora el cliente simplemente se retira.
+        if (cust.cart.length === 0) {
+            cust.state = 'leaving_angry';
+            cust.progress = 100;
+            renderCustomers();
+            showToast(`${cust.name.split(' ')[0]} se fue sin comprar.`);
+            return;
+        }
+        // FIX: aplicar el multiplicador de precio global (descuentos) también en caja manual,
+        // igual que hace el cajero automático. Se redondea a centavos para evitar errores
+        // de punto flotante al comparar el monto ingresado por el jugador.
+        const mult = gameState.priceMultiplier || 1.0;
+        cust.cart.forEach(item => { item.price = Math.round(item.price * mult * 100) / 100; });
+
+        const types = new Set(cust.cart.map(i => i.type));  
         if (types.size === 1) showQuickPayModal(cust); 
         else showManualCalcModal(cust); 
+    }
+}
+
+// --- NORMALIZACIÓN DE ESTADO (nueva partida y partidas cargadas) ---
+function normalizeLoadedState() {
+    if (!gameState) return;
+
+    // FIX: saves antiguos podían no traer 'activeModifiers' como array;
+    // asegurar su existencia para evitar errores al push/guardar.
+    if (!Array.isArray(gameState.activeModifiers)) gameState.activeModifiers = [];
+
+    // FIX: tras cargar un save, el minijuego debe quedar en estado limpio
+    // (intervalId no es serializable y podía venir sucio del JSON).
+    if (!gameState.minigame) gameState.minigame = { active: false, progress: 50, needlePos: 0, direction: 1, intervalId: null };
+    else { gameState.minigame.active = false; gameState.minigame.intervalId = null; }
+    if (!gameState.modifierFlags) gameState.modifierFlags = {};
+    if (!Array.isArray(gameState.stats.active_chaos_timers)) gameState.stats.active_chaos_timers = [];
+
+    // FIX: los modifiers con entrega asíncrona (deliveryDelay) pueden añadir
+    // stock después de cerrar la tienda / cambiar de día, superando el máximo
+    // de slots. Al normalizar, se recorta el exceso para mantener consistencia.
+    const invKeys = ['white_wolfie', 'brown_wolfie', 'winteruff', 'curious_pups'];
+    let total = invKeys.reduce((s, k) => s + (gameState.inventory[k] || 0), 0);
+    if (total > gameState.currentMaxSlots) {
+        let excess = total - gameState.currentMaxSlots;
+        for (const k of invKeys) {
+            while (excess > 0 && gameState.inventory[k] > 0) { gameState.inventory[k]--; excess--; }
+        }
     }
 }
 
@@ -397,8 +455,10 @@ function buyLote(type) {
     if (gameState.budget >= finalCost) {
         gameState.budget -= finalCost;
         
-        // Delivery Fail (Database Hack)
-        if (gameState.modifierFlags.deliveryFailChance > 0 && Math.random() < gameState.modifierFlags.deliveryFailChance) {
+        // FIX: "Database Hack" ahora NO afecta a los básicos blancos (partida inicial jugable)
+        const canFailDelivery = (type !== 'white') && gameState.modifierFlags.deliveryFailChance > 0;
+        // Delivery Fail (Database Hack): el dinero se pierde junto con el lote
+        if (canFailDelivery && Math.random() < gameState.modifierFlags.deliveryFailChance) {
             showToast("❌ ERROR DELIVERY: El lote no llegó. Perdiste el dinero.");
             updateUI();
             return;
@@ -453,12 +513,16 @@ function fillStock(type) {
     if(gameState.budget >= totalFinal) {
         gameState.budget -= totalFinal;
         
-        if (gameState.modifierFlags.deliveryFailChance > 0 && Math.random() < gameState.modifierFlags.deliveryFailChance) {
+        // FIX: mismo criterio que buyLote: sin fallos de delivery en básicos blancos
+        const canFailFill = (type !== 'white') && gameState.modifierFlags.deliveryFailChance > 0;
+        if (canFailFill && Math.random() < gameState.modifierFlags.deliveryFailChance) {
              showToast("❌ ERROR DELIVERY MASIVO.");
+             updateUI();
              return;
         }
 
-        const addedUnits = lots * loteSize;
+        // FIX: no añadir más allá del tope real de slots (lots se redondea hacia arriba)
+        const addedUnits = Math.min(lots * loteSize, max - current);
         if (gameState.modifierFlags.deliveryDelay) {
             setTimeout(() => {
                 addInventory(type, addedUnits);
@@ -605,8 +669,19 @@ function processDailyPupChaos() {
 }
 
 function nextDay() {
+    // FIX: ocultar el modal de fin de jornada al avanzar (antes dependía del
+    // listener de main.js y podía quedar visible si nextDay() terminaba antes).
+    const dem = document.getElementById('day-end-modal');
+    if (dem) dem.classList.add('hidden');
+
     if (checkGoodEndings()) return;
-    processDailyPupChaos();
+    // FIX: processDailyPupChaos() ya corrió en closeShop()->processEndOfDay();
+    // ejecutarlo otra vez duplicaba daños/advertencias. Solo se procesa si aún
+    // hay registro pendiente del día (ruta sin cierre previo).
+    if (!gameState.daily_tracker.chaos_processed) {
+        processDailyPupChaos();
+        gameState.daily_tracker.chaos_processed = true;
+    }
     
     // Luxury Tax (Greedy Tax Modifier)
     if (gameState.modifierFlags.luxuryTax && gameState.budget > 1000) {
@@ -629,6 +704,8 @@ function nextDay() {
     gameState.daily_tracker.start_budget = gameState.budget;
     gameState.daily_tracker.earned_today = 0; 
     gameState.daily_tracker.chaos_log = [];
+    // FIX: reiniciar el flag de caos procesado para el nuevo día
+    gameState.daily_tracker.chaos_processed = false;
     gameState.customers = []; 
     gameState.winterAbandonTimer = 0;
     
@@ -638,6 +715,10 @@ function nextDay() {
 }
 
 function processEndOfDay() {
+    // FIX: marcar el día como procesado al inicio (antes del early-return
+    // por bancarrota) para que nextDay() no vuelva a aplicar daños/advertencias.
+    gameState.daily_tracker.chaos_processed = true;
+
     const w = gameState.inventory.white_wolfie; 
     const b = gameState.inventory.brown_wolfie;
     const wi = gameState.inventory.winteruff; 
@@ -654,6 +735,9 @@ function processEndOfDay() {
     
     const report = document.getElementById('day-report-body');
     report.textContent = `Ventas: $${gameState.daily_tracker.earned_today.toFixed(2)}\nPreservación: -$${cost.toFixed(2)}\nBalance: $${gameState.budget.toFixed(2)}\n\n${gameState.daily_tracker.earned_today >= 30 ? '✅ Meta Cumplida' : '⚠️ Meta Fallida'}`;
+    // FIX: limpiar el reporte de caos del día para que no se acumule con el de días
+    // anteriores cuando nextDay() añada su propio reporte debajo.
+    gameState.daily_tracker.chaos_log = [];
     document.getElementById('day-end-modal').classList.remove('hidden');
 }
 
@@ -691,15 +775,21 @@ function showErrorToast(msg) { console.error(msg); showToast(msg); }
 
 // --- LÓGICA MINIJUEGO GORDINFLÓN ---
 function startGordinflonMinigame(mode) {
+    // FIX: si ya había un minijuego activo, limpiar su intervalo para no dejarlo huérfano
+    if (gameState.minigame.intervalId) clearInterval(gameState.minigame.intervalId);
+
+    gameState.interactionMode = mode; // FIX: main.js lo revisa para habilitar teclas pero nunca se asignaba
     gameState.minigame.active = true;
     gameState.minigame.progress = 50; 
     gameState.minigame.needlePos = 0; 
     gameState.minigame.direction = 1; 
     
+    document.getElementById('pet-bar-container').classList.remove('hidden');
     document.getElementById('pc-hint').classList.toggle('hidden', mode !== 'PC');
     document.getElementById('mobile-hint').classList.toggle('hidden', mode !== 'MOVIL');
     document.getElementById('btn-start-minigame').classList.toggle('hidden', mode !== 'MOVIL');
-    document.getElementById('btn-pet-action').classList.toggle('hidden', mode === 'MOVIL' && gameState.minigame.active);
+    // FIX: el botón de acariciar debe permanecer oculto hasta que el juego empiece
+    document.getElementById('btn-pet-action').classList.add('hidden');
     
     gameState.minigame.intervalId = setInterval(() => {
         if (!gameState.minigame.active) return;
@@ -707,11 +797,33 @@ function startGordinflonMinigame(mode) {
         gameState.minigame.needlePos += 2.5 * gameState.minigame.direction; 
         
         if (gameState.minigame.needlePos >= 100 || gameState.minigame.needlePos <= 0) gameState.minigame.direction *= -1;
+        // FIX: acotar la aguja a [0,100] para que no "desaparezca" fuera de la pista
+        // tras rebotar y seguir sumando el paso en el mismo tick.
+        gameState.minigame.needlePos = Math.max(0, Math.min(100, gameState.minigame.needlePos));
         if (gameState.minigame.progress <= 0) endMinigame(false);
         if (gameState.minigame.progress >= 100) endMinigame(true);
         
         updateMinigameUI();
     }, 16);
+}
+
+
+// --- CONTROLES DE TECLADO DEL MINIJUEGO ---
+// FIX: main.js referenciaba handleDangerKey/handleDangerKeyUp pero NUNCA existieron
+// (ReferenceError al presionar cualquier tecla con un minijuego activo).
+// Ahora la tecla P ejecuta la caricia (con anti-repetición por keydown continuo).
+let petKeyHandled = false;
+function handleDangerKey(key) {
+    if (!gameState || !gameState.minigame.active) return;
+    const k = (key || '').toLowerCase();
+    if (k === 'p' && !petKeyHandled) {
+        petKeyHandled = true;
+        handlePetInput();
+    }
+}
+function handleDangerKeyUp(key) {
+    const k = (key || '').toLowerCase();
+    if (k === 'p') petKeyHandled = false;
 }
 
 function performPetAction() {
@@ -733,16 +845,51 @@ function performPetAction() {
 
 function endMinigame(success) {
     gameState.minigame.active = false; 
+    gameState.interactionMode = null; // FIX: limpiar modo de interacción al terminar
     clearInterval(gameState.minigame.intervalId);
+    gameState.minigame.intervalId = null;
+    document.getElementById('btn-pet-action').classList.add('hidden');
     if (success) onGordinflonSuccess(); 
     else onGordinflonFail();
 }
 
+// FIX: tecla P (PC) y botón ACARICIAR (móvil) ejecutan la acción de caricia
+function handlePetInput() {
+    resetInactivityTimer();
+    performPetAction();
+}
+
 function updateMinigameUI() {
-    const bar = document.getElementById('gordinflon-bar');
+    const bar = document.getElementById('pet-progress-bar');
     const needle = document.getElementById('minigame-needle');
-    if (bar && needle) {
-        bar.style.width = `${Math.max(0, Math.min(100, gameState.minigame.progress))}%`;
-        needle.style.left = `${gameState.minigame.needlePos}%`;
+    const track = document.querySelector('#pet-bar-container .progress-track');
+    if (!bar || !needle || !track) return;
+
+    // La pista debe ser 'relative' para posicionar aguja y zona dentro de ella
+    if (getComputedStyle(track).position === 'static') track.style.position = 'relative';
+
+    // Zona rosa objetivo: DEBE coincidir con targetStart/targetEnd de performPetAction
+    const targetStart = 40, targetEnd = 60;
+    let zone = document.getElementById('pet-target-zone');
+    if (!zone) {
+        zone = document.createElement('div');
+        zone.id = 'pet-target-zone';
+        zone.style.cssText = "position:absolute; top:0; bottom:0; pointer-events:none; background:rgba(255,105,180,0.45); border-left:1px solid #ff69b4; border-right:1px solid #ff69b4;";
+        track.insertBefore(zone, track.firstChild);
     }
+    zone.style.left = `${targetStart}%`;
+    zone.style.width = `${targetEnd - targetStart}%`;
+
+    // Aguja
+    needle.style.position = 'absolute';
+    needle.style.top = '0';
+    needle.style.bottom = '0';
+    needle.style.width = '3px';
+    needle.style.background = '#fff';
+    needle.style.boxShadow = '0 0 4px #fff';
+    needle.style.zIndex = '2';
+    needle.style.transform = 'translateX(-50%)';
+
+    bar.style.width = `${Math.max(0, Math.min(100, gameState.minigame.progress))}%`;
+    needle.style.left = `${gameState.minigame.needlePos}%`;
 }

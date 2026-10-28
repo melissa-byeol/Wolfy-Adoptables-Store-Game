@@ -93,7 +93,9 @@ function renderCustomers() {
                 item.style.boxShadow = `inset 0 0 5px ${styleConfig.glow}`;
             }
             const total = cust.cart.reduce((s,i)=>s+i.price,0);
-            item.innerHTML = `<span>${cust.name.split(' ')[0]}</span><span class="price">$${total.toFixed(2)}</span>`;
+            // FIX: con "Hackeo A La Base De Datos" los precios se ocultan en la cola
+            const priceLabel = gameState.modifierFlags.hidePrices ? '???' : `$${total.toFixed(2)}`;
+            item.innerHTML = `<span>${cust.name.split(' ')[0]}</span><span class="price">${priceLabel}</span>`;
             if(!hasAuto || cust.hasDanger || cust.hasWinter || cust.isBoss) item.onclick = () => attemptCheckout(cust.id);
             queue.appendChild(item);
         }
@@ -114,6 +116,7 @@ function updateUI() {
     updateStoreMapView();
     renderCustomers();
     updateUpgradesUI();
+    updateModifierBadge();
     
     // Alerta bajo stock
     const alert = document.getElementById('low-stock-alert');
@@ -131,6 +134,16 @@ function updateUI() {
         } else {
             chaosDisplay.classList.add('hidden');
         }
+    }
+}
+
+function updateModifierBadge() {
+    const el = document.getElementById('active-modifier-display');
+    if (!el) return;
+    const strong = el.querySelector('strong');
+    if (strong) {
+        const mods = (gameState.activeModifiers && gameState.activeModifiers.length) ? gameState.activeModifiers : null;
+        strong.textContent = mods ? mods.join(', ') : 'Ninguno';
     }
 }
 
@@ -153,6 +166,9 @@ function showQuickPayModal(cust) {
     m.querySelector('#qp-quantity').textContent = `${cust.cart.length} items`;
     m.dataset.cid = cust.id;
     m.querySelector('#btn-quick-confirm').onclick = () => processPayment(cust.id, total);
+    // FIX: el botón "Cancelar" de caja rápida no tenía handler (quedaba inerte)
+    const qpCancel = m.querySelector('#btn-quick-cancel');
+    if (qpCancel) qpCancel.onclick = () => { cust.state = 'leaving_angry'; cust.progress = 100; hideAllModals(); renderCustomers(); };
     m.classList.remove('hidden');
 }
 
@@ -194,8 +210,10 @@ function showWinteruffPayModal(cust) {
             priceEl.style.color = "#f44336"; m.classList.add('shaking');
         }
     }, 100);
-    m.querySelector('#btn-wu-confirm').onclick = () => { clearInterval(winterInterval); processPayment(cust.id, price); m.classList.remove('shaking','hidden'); };
-    m.querySelector('#btn-wu-cancel').onclick = () => { clearInterval(winterInterval); m.classList.remove('shaking','hidden'); };
+    // FIX: al confirmar/cancelar había que VOLVER a mostrar el modal ('hidden' añadido por
+    // hideAllModals). Ahora solo se oculta; el siguiente cliente lo reconfigura.
+    m.querySelector('#btn-wu-confirm').onclick = () => { clearInterval(winterInterval); processPayment(cust.id, price); m.classList.remove('shaking'); };
+    m.querySelector('#btn-wu-cancel').onclick = () => { clearInterval(winterInterval); m.classList.add('hidden'); };
     m.classList.remove('hidden');
 }
 
@@ -221,11 +239,23 @@ function showBossPayModal(cust) {
     }, 100);
     m.querySelector('#btn-wu-confirm').onclick = () => { 
         clearInterval(winterInterval); processPayment(cust.id, price); 
-        m.classList.remove('shaking','hidden');
+        // FIX: no volver a mostrar el modal aquí (processPayment ya lo oculta)
+        m.classList.remove('shaking');
         if(price === PRICE_WINTER_FRESH * 6) showToast("🏆 ¡DOMINANCIA ALCANZADA!");
     };
-    m.querySelector('#btn-wu-cancel').onclick = () => { clearInterval(winterInterval); m.classList.remove('shaking','hidden'); };
+    m.querySelector('#btn-wu-cancel').onclick = () => { clearInterval(winterInterval); m.classList.remove('shaking'); m.classList.add('hidden'); };
     m.classList.remove('hidden');
+}
+
+// FIX: limpiador global de timers de modales (calor winteruff/jefe y minijuego)
+// para que ningún intervalo siga corriendo al cerrar la tienda o cambiar de pantalla.
+function clearAllPendingTimers() {
+    if (winterInterval) { clearInterval(winterInterval); winterInterval = null; }
+    if (gameState && gameState.minigame && gameState.minigame.intervalId) {
+        clearInterval(gameState.minigame.intervalId);
+        gameState.minigame.intervalId = null;
+        gameState.minigame.active = false;
+    }
 }
 
 function processPayment(cid, amount) {
@@ -249,7 +279,19 @@ function startDangerSequence(cust) {
     currentDangerCust = cust;
     const ov = document.getElementById('interaction-overlay');
     ov.classList.remove('hidden');
-    
+
+    const instructionEl = document.getElementById('interaction-instruction');
+    if (instructionEl) instructionEl.textContent = "Un Gordinflón se ha alterado. ¡Calma la barra antes de que llegue a 0!";
+
+    // FIX: el botón "Empezar" no tenía handler asignado (quedaba inerte).
+    // Ahora inicia el minijuego en modo móvil (con botón ACARICIAR).
+    const btnStartMg = document.getElementById('btn-start-minigame');
+    if (btnStartMg) btnStartMg.onclick = () => startGordinflonMinigame('MOVIL');
+
+    // FIX: el botón ACARICIAR tampoco tenía listener; ahora ejecuta la caricia.
+    const btnPet = document.getElementById('btn-pet-action');
+    if (btnPet) btnPet.onclick = () => handlePetInput();
+
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
         document.getElementById('mobile-hint').classList.remove('hidden'); document.getElementById('pc-hint').classList.add('hidden');
@@ -274,8 +316,23 @@ function onGordinflonFail() {
     if (gameState.biteCounter >= 10) triggerGameOver('fatality');
 }
 
-function hideAllModals() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); }
-function showToast(msg) { console.log(msg); }
+function hideAllModals() { clearAllPendingTimers(); document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); }
+function showToast(msg) {
+    console.log(msg);
+    let host = document.getElementById('toast-container');
+    if (!host) {
+        host = document.createElement('div');
+        host.id = 'toast-container';
+        host.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:2000;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;';
+        document.body.appendChild(host);
+    }
+    const t = document.createElement('div');
+    t.className = 'toast-msg';
+    t.textContent = msg;
+    t.style.cssText = 'background:rgba(0,0,0,0.9);color:#fff;padding:8px 14px;border-radius:8px;border:1px solid #555;font-size:0.9em;max-width:90vw;text-align:center;';
+    host.appendChild(t);
+    setTimeout(() => t.remove(), 2500);
+}
 function showModal(t, b) {
     document.getElementById('modal-title').textContent = t;
     document.getElementById('modal-body').innerText = b;
