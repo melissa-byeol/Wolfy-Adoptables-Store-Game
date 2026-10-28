@@ -35,19 +35,27 @@ function checkExclusiveAchievements() {
 
 // --- INICIALIZACIÓN CON MÚLTIPLES MODIFIERS ---
 function initNewGame(selectedModifierIds = []) {
+    // VALIDACIÓN CRÍTICA: Asegurar que siempre sea un Array
+    if (!Array.isArray(selectedModifierIds)) {
+        console.warn("⚠️ selectedModifierIds no es un array. Usando array vacío.");
+        selectedModifierIds = [];
+    }
+
     // Resetear estado base
     gameState = JSON.parse(JSON.stringify(DEFAULT_STATE));
     
     // Aplicar TODOS los modifiers seleccionados secuencialmente
     selectedModifierIds.forEach(modId => {
         const mod = AVAILABLE_MODIFIERS.find(m => m.id === modId);
-        if (mod && mod.effect) {
+        if (mod && typeof mod.effect === 'function') {
             mod.effect(gameState);
             gameState.activeModifiers.push(modId);
+        } else {
+            console.error(`❌ Modifier ID '${modId}' no encontrado o sin efecto válido.`);
         }
     });
 
-    // Valores iniciales fijos (los modifiers pueden alterar budget/spawn rate vía flags o multiplicadores)
+    // Valores iniciales fijos
     gameState.budget = 10.00; 
     gameState.inventory.white_wolfie = 24;
     gameState.daily_tracker.start_budget = gameState.budget; 
