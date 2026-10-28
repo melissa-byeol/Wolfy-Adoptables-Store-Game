@@ -32,20 +32,28 @@ function checkExclusiveAchievements() {
 }
 
 // --- INICIALIZACIÓN CON MODIFIER ---
-function initNewGame(modifierId = 'none') {
+// ... constantes anteriores ...
+
+// --- INICIALIZACIÓN CON MÚLTIPLES MODIFIERS ---
+function initNewGame(selectedModifierIds = []) {
     gameState = JSON.parse(JSON.stringify(DEFAULT_STATE));
     
-    // Aplicar Modifier Seleccionado
-    const mod = AVAILABLE_MODIFIERS.find(m => m.id === modifierId);
-    if (mod && mod.effect) {
-        mod.effect(gameState);
-        gameState.selectedModifier = modifierId;
-    }
+    // Aplicar TODOS los modifiers seleccionados
+    selectedModifierIds.forEach(modId => {
+        const mod = AVAILABLE_MODIFIERS.find(m => m.id === modId);
+        if (mod && mod.effect) {
+            mod.effect(gameState);
+            gameState.activeModifiers.push(modId); // Guardar ID activo
+        }
+    });
 
     // Resetear valores base afectados por modifiers
     gameState.budget = 10.00; 
-    if (gameState.baseBudgetBonus !== 0) {
-        gameState.budget *= (1 + gameState.baseBudgetBonus);
+    
+    // Aplicar descuento global si existe
+    if (gameState.priceMultiplier < 1.0) {
+        // Opcional: Reducir costo inicial o dar bono? 
+        // Por ahora, el descuento se aplica en buyLote/fillStock dinámicamente.
     }
     
     gameState.inventory.white_wolfie = 24;
@@ -58,9 +66,102 @@ function initNewGame(modifierId = 'none') {
     checkExclusiveAchievements(); 
     updateUI();
     
-    let modMsg = mod ? `\nModificador: ${mod.name}` : "";
-    showModal("Bienvenido", `Tu tienda ha sido inaugurada.\nTienes 24 Lobitos Básicos.${modMsg}\nPresiona 'ABRIR TIENDA' para comenzar.`);
+    let modsSummary = selectedModifierIds.length > 0 
+        ? `Activos: ${selectedModifierIds.join(', ')}` 
+        : "Sin modificadores";
+        
+    showModal("Bienvenido", `Tu tienda ha sido inaugurada.\nTienes 24 Lobitos Básicos.\n${modsSummary}\nPresiona 'ABRIR TIENDA' para comenzar.`);
 }
+
+// ... gameTick, spawnCustomer, etc. permanecen casi iguales ...
+// Solo asegúrate de usar gameState.spawnRateMultiplier y gameState.maxQueueLength donde corresponda.
+
+// --- GESTIÓN STOCK CON DESCUENTOS ACUMULADOS ---
+function buyLote(type) {
+    resetInactivityTimer(); 
+    let baseCost = 0, units = 0;
+    if(type==='white') { baseCost=COST_LOTE_WHITE; units=UNITS_LOTE_WHITE; }
+    if(type==='brown') { baseCost=COST_LOTE_BROWN; units=UNITS_LOTE_BROWN; }
+    if(type==='winter') { baseCost=COST_LOTE_WINTER; units=UNITS_LOTE_WINTER; }
+    if(type==='pups') { baseCost=COST_LOTE_PUPS; units=UNITS_LOTE_PUPS; }
+
+    // Aplicar multiplicador de precio (ej. 0.8 si Good Offers está activo)
+    let finalCost = baseCost * gameState.priceMultiplier;
+
+    if (gameState.budget >= finalCost) {
+        gameState.budget -= finalCost;
+        
+        // Delivery Fail (Database Hack)
+        if (gameState.modifierFlags.deliveryFailChance > 0 && Math.random() < gameState.modifierFlags.deliveryFailChance) {
+            showToast("❌ ERROR DELIVERY: El lote no llegó. Perdiste el dinero.");
+            updateUI();
+            return;
+        }
+
+        // Apply Inventory with Delay (Tech Failures)
+        if (gameState.modifierFlags.deliveryDelay) {
+            showToast("⏳ Procesando entrega... (Retraso técnico)");
+            setTimeout(() => {
+                addInventory(type, units);
+                updateUI();
+                showToast(`✅ Entrega completada (+${units} uds).`);
+            }, 1000 + Math.random() * 4000); // 1-5 seg
+        } else {
+            addInventory(type, units);
+            updateUI(); 
+            showToast(`Comprado lote ${type}. Coste: $${finalCost.toFixed(2)}`);
+        }
+    } else showErrorToast("Fondos insuficientes.");
+}
+
+function fillStock(type) {
+    resetInactivityTimer();
+    let current = 0;
+    if(type==='white') current = gameState.inventory.white_wolfie;
+    if(type==='brown') current = gameState.inventory.brown_wolfie;
+    if(type==='winter') current = gameState.inventory.winteruff;
+    if(type==='pups') current = gameState.inventory.curious_pups;
+
+    const max = gameState.currentMaxSlots;
+    if(current >= max) return showToast("Lleno.");
+    
+    const needed = max - current; 
+    let baseUnitCost=0, loteSize=0;
+    
+    if(type==='white') { baseUnitCost=COST_LOTE_WHITE; loteSize=UNITS_LOTE_WHITE; }
+    if(type==='brown') { baseUnitCost=COST_LOTE_BROWN; loteSize=UNITS_LOTE_BROWN; }
+    if(type==='winter') { baseUnitCost=COST_LOTE_WINTER; loteSize=UNITS_LOTE_WINTER; }
+    if(type==='pups') { baseUnitCost=COST_LOTE_PUPS; loteSize=UNITS_LOTE_PUPS; }
+
+    const lots = Math.ceil(needed/loteSize); 
+    const totalBase = lots * baseUnitCost;
+    const totalFinal = totalBase * gameState.priceMultiplier; // Aplicar descuento
+    
+    if(gameState.budget >= totalFinal) {
+        gameState.budget -= totalFinal;
+        
+        if (gameState.modifierFlags.deliveryFailChance > 0 && Math.random() < gameState.modifierFlags.deliveryFailChance) {
+             showToast("❌ ERROR DELIVERY MASIVO.");
+             return;
+        }
+
+        const addedUnits = lots * loteSize;
+        if (gameState.modifierFlags.deliveryDelay) {
+            setTimeout(() => {
+                addInventory(type, addedUnits);
+                updateUI();
+                showToast(`Estoque ${type} lleno.`);
+            }, 1000 + Math.random() * 4000);
+        } else {
+            addInventory(type, addedUnits);
+            updateUI(); 
+            showToast(`Estoque ${type} lleno. Coste Total: $${totalFinal.toFixed(2)}`);
+        }
+    } else showErrorToast(`Necesitas $${totalFinal.toFixed(2)}.`);
+}
+
+// ... resto de funciones (triggerGameOver, nextDay, etc.) ...
+// En nextDay(), la lógica de Luxury Tax sigue igual porque lee flag booleano.
 
 // --- CONTROL TIENDA ---
 function toggleShopState() { 
@@ -370,100 +471,11 @@ function attemptCheckout(customerId) {
     }
 }
 
-// --- GESTIÓN STOCK CON MODIFIERS ---
-function buyLote(type) {
-    resetInactivityTimer(); 
-    let cost = 0, units = 0;
-    if(type==='white') { cost=COST_LOTE_WHITE; units=UNITS_LOTE_WHITE; }
-    if(type==='brown') { cost=COST_LOTE_BROWN; units=UNITS_LOTE_BROWN; }
-    if(type==='winter') { cost=COST_LOTE_WINTER; units=UNITS_LOTE_WINTER; }
-    if(type==='pups') { cost=COST_LOTE_PUPS; units=UNITS_LOTE_PUPS; }
-
-    // Descuento Good Offers (Simulado: reduce coste 20% si hay oferta activa, aquí simplificamos aplicándolo siempre si el mod está activo)
-    if (gameState.modifierFlags.hasDiscounts) {
-        cost *= 0.8; // 20% off
-    }
-
-    if (gameState.budget >= cost) {
-        gameState.budget -= cost;
-        
-        // Delivery Fail (Database Hack)
-        if (gameState.modifierFlags.deliveryFailChance > 0 && Math.random() < gameState.modifierFlags.deliveryFailChance) {
-            showToast("❌ ERROR DELIVERY: El lote no llegó. Perdiste el dinero.");
-            updateUI();
-            return;
-        }
-
-        // Apply Inventory with Delay (Tech Failures)
-        if (gameState.modifierFlags.deliveryDelay) {
-            showToast("⏳ Procesando entrega... (Retraso técnico)");
-            setTimeout(() => {
-                addInventory(type, units);
-                updateUI();
-                showToast(`✅ Entrega completada (+${units} uds).`);
-            }, 1000 + Math.random() * 4000); // 1-5 seg
-        } else {
-            addInventory(type, units);
-            updateUI(); 
-            showToast(`Comprado lote ${type}.`);
-        }
-    } else showErrorToast("Fondos insuficientes.");
-}
-
 function addInventory(type, units) {
     if(type==='white') gameState.inventory.white_wolfie += units;
     if(type==='brown') gameState.inventory.brown_wolfie += units;
     if(type==='winter') gameState.inventory.winteruff += units;
     if(type==='pups') gameState.inventory.curious_pups += units;
-}
-
-function fillStock(type) {
-    resetInactivityTimer();
-    let current = 0;
-    if(type==='white') current = gameState.inventory.white_wolfie;
-    if(type==='brown') current = gameState.inventory.brown_wolfie;
-    if(type==='winter') current = gameState.inventory.winteruff;
-    if(type==='pups') current = gameState.inventory.curious_pups;
-
-    const max = gameState.currentMaxSlots;
-    if(current >= max) return showToast("Lleno.");
-    
-    const needed = max - current; 
-    let unitCost=0, loteSize=0;
-    
-    if(type==='white') { unitCost=COST_LOTE_WHITE; loteSize=UNITS_LOTE_WHITE; }
-    if(type==='brown') { unitCost=COST_LOTE_BROWN; loteSize=UNITS_LOTE_BROWN; }
-    if(type==='winter') { unitCost=COST_LOTE_WINTER; loteSize=UNITS_LOTE_WINTER; }
-    if(type==='pups') { unitCost=COST_LOTE_PUPS; loteSize=UNITS_LOTE_PUPS; }
-
-    if (gameState.modifierFlags.hasDiscounts) {
-        unitCost *= 0.8;
-    }
-
-    const lots = Math.ceil(needed/loteSize); 
-    const total = lots * unitCost;
-    
-    if(gameState.budget >= total) {
-        gameState.budget -= total;
-        
-        if (gameState.modifierFlags.deliveryFailChance > 0 && Math.random() < gameState.modifierFlags.deliveryFailChance) {
-             showToast("❌ ERROR DELIVERY MASIVO.");
-             return;
-        }
-
-        const addedUnits = lots * loteSize;
-        if (gameState.modifierFlags.deliveryDelay) {
-            setTimeout(() => {
-                addInventory(type, addedUnits);
-                updateUI();
-                showToast(`Estoque ${type} lleno.`);
-            }, 1000 + Math.random() * 4000);
-        } else {
-            addInventory(type, addedUnits);
-            updateUI(); 
-            showToast(`Estoque ${type} lleno.`);
-        }
-    } else showErrorToast(`Necesitas $${total}.`);
 }
 
 function buyUpgrade(id) {
