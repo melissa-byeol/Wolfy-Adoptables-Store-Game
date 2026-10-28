@@ -28,11 +28,11 @@ const AVAILABLE_MODIFIERS = [
         id: "good_offers",
         name: "Good Offers",
         tier: "GOOD",
-        description: "-20% Wolfichas. Pop-ups de descuento (10-50%) y Chance VIP (x2 dinero).",
+        description: "-20% Wolfichas. Pop-ups de descuento y Chance VIP (x2 dinero).",
         effect: (state) => {
             state.modifierFlags.hasDiscounts = true;
-            state.modifierFlags.vipChance = Math.max(state.modifierFlags.vipChance || 0, 0.05); // No duplicar chance, tomar max
-            state.priceMultiplier = Math.min(state.priceMultiplier || 1.0, 0.8); // Tomar el mejor descuento
+            state.modifierFlags.vipChance = Math.max(state.modifierFlags.vipChance || 0, 0.05);
+            state.priceMultiplier = Math.min(state.priceMultiplier || 1.0, 0.8);
         }
     },
     {
@@ -43,7 +43,7 @@ const AVAILABLE_MODIFIERS = [
         effect: (state) => {
             state.spawnRateMultiplier = (state.spawnRateMultiplier || 1.0) * 2.0;
             state.maxQueueLength = Math.max(state.maxQueueLength || 8, 30);
-            state.priceMultiplier = Math.min(state.priceMultiplier || 1.0, 0.9); // Si ya tiene good_offers (0.8), se queda en 0.8
+            state.priceMultiplier = Math.min(state.priceMultiplier || 1.0, 0.9);
         }
     },
     // --- NEUTRALES ---
@@ -70,7 +70,7 @@ const AVAILABLE_MODIFIERS = [
         id: "database_hack",
         name: "Hackeo A La Base De Datos",
         tier: "BAD",
-        description: "+30% Wolfichas. Precios ocultos (calcular manual) y 5% fallo delivery (pierdes dinero).",
+        description: "+30% Wolfichas. Precios ocultos (calcular manual) y 5% fallo delivery.",
         effect: (state) => {
             state.modifierFlags.hidePrices = true;
             state.modifierFlags.deliveryFailChance = Math.max(state.modifierFlags.deliveryFailChance || 0, 0.05);
@@ -80,7 +80,7 @@ const AVAILABLE_MODIFIERS = [
         id: "greedy_tax",
         name: "Impuesto Al Ahorro",
         tier: "BAD",
-        description: "+25% Wolfichas. Si terminas el día con >$1000, pierdes el 10% como 'taxe de lujo'.",
+        description: "+25% Wolfichas. Si terminas el día con >$1000, pierdes el 10%.",
         effect: (state) => {
             state.modifierFlags.luxuryTax = true;
         }
@@ -89,7 +89,7 @@ const AVAILABLE_MODIFIERS = [
         id: "chaotic_walkers",
         name: "Caminantes Caóticos",
         tier: "BAD",
-        description: "+20% Wolfichas. Los clientes se mueven más lento y a veces retroceden confundidos.",
+        description: "+20% Wolfichas. Los clientes se mueven más lento y a veces retroceden.",
         effect: (state) => {
             state.modifierFlags.slowWalkers = true;
         }
