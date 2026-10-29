@@ -867,7 +867,10 @@ function nextDay() {
     gameState.winterAbandonTimer = 0;
     
     saveGame(); 
-    document.getElementById('day-end-modal').classList.remove('hidden'); 
+    // FIX: el modal de reporte del dia se CIERRA al presionar SIGUIENTE DIA
+    // (antes se volvia a mostrar aqui y quedaba visible sobre el juego).
+    const demNext = document.getElementById('day-end-modal');
+    if (demNext) demNext.classList.add('hidden');
     updateUI();
 }
 
