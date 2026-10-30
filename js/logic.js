@@ -110,6 +110,45 @@ function getSkinEmoji(productKey) {
     return skin ? skin.emoji : "";
 }
 
+// Vista previa de una skin específica (independiente de la equipación actual).
+// Se usa en la Tienda de Skins: muestra el mini-wolfie real con su pelaje,
+// arte grabado y partículas animadas.
+function buildPreviewSkinElement(skin) {
+    const wrap = document.createElement('div');
+    wrap.className = 'skin-body preview';
+
+    const v = skin.visual || {};
+    const critter = document.createElement('div');
+    critter.className = `skin-critter skin-${skin.id}`;
+    if (Array.isArray(v.palette) && v.palette.length >= 2) {
+        critter.style.background = `linear-gradient(150deg, ${v.palette[0]} 0%, ${v.palette[1]} 100%)`;
+    } else {
+        critter.style.background = 'linear-gradient(150deg, #f5f5f5 0%, #d7dbe0 100%)';
+    }
+
+    ['ear-l', 'ear-r', 'snout', 'cheek-l', 'cheek-r'].forEach(part => {
+        const el = document.createElement('i');
+        el.className = 'skin-part ' + part;
+        critter.appendChild(el);
+    });
+
+    if (v.art) {
+        const art = document.createElement('span');
+        art.className = 'skin-art skin-art-' + v.art;
+        critter.appendChild(art);
+    }
+    wrap.appendChild(critter);
+
+    if (v.fx) {
+        for (let i = 0; i < 3; i++) {
+            const p = document.createElement('span');
+            p.className = `fx-particle fx-${v.fx} fx-i${i}`;
+            wrap.appendChild(p);
+        }
+    }
+    return wrap;
+}
+
 // --- TIENDA DE SKINS (modal genérico reutilizado) ---
 function openSkinShop() {
     if (!gameState) return;
@@ -149,11 +188,29 @@ function renderShopModal() {
 
         const card = document.createElement('div');
         card.className = 'skin-card' + (equipped ? ' equipped' : '') + (lockedByEvent ? ' locked' : '');
-        card.innerHTML = `<div class="skin-preview">${skin.emoji || '⬜'}</div>
-                          <strong>${skin.name}</strong>
-                          <small>${productName}</small>
-                          <small class="skin-desc">${skin.desc}</small>
-                          <small class="skin-price">${skin.currency === 'candies' ? '🍬' : '🐺'} ${skin.cost[skin.currency]}</small>`;
+        // Vista previa: mini-wolfie REAL con el pelaje, arte y partículas de la skin.
+        const preview = document.createElement('div');
+        preview.className = 'skin-preview';
+        preview.appendChild(buildPreviewSkinElement(skin));
+        card.appendChild(preview);
+
+        const nameEl = document.createElement('strong');
+        nameEl.textContent = skin.name;
+        card.appendChild(nameEl);
+
+        const prodEl = document.createElement('small');
+        prodEl.textContent = productName;
+        card.appendChild(prodEl);
+
+        const descEl = document.createElement('small');
+        descEl.className = 'skin-desc';
+        descEl.innerHTML = skin.desc;
+        card.appendChild(descEl);
+
+        const priceEl = document.createElement('small');
+        priceEl.className = 'skin-price';
+        priceEl.innerHTML = `${skin.currency === 'candies' ? '🍬' : '🐺'} ${skin.cost[skin.currency]}`;
+        card.appendChild(priceEl);
         const action = document.createElement('button');
         action.className = 'btn small ' + (equipped ? 'ghost' : owned ? 'success' : 'primary');
         action.textContent = equipped ? 'Equipada ✓' : owned ? 'Equipar' : lockedByEvent ? 'Fuera de temporada' : 'Comprar';
