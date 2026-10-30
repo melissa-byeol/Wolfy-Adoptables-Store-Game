@@ -19,12 +19,12 @@ function updateStoreMapView() {
         ...Array(gameState.inventory.curious_pups).fill('type-pups')
     ];
 
-    // Skins equipadas: se muestran como emoji sobre los estantes (certificación Wolfies Go)
-    const skinEmojis = {
-        'type-white': getSkinEmoji('white_wolfie'),
-        'type-brown': getSkinEmoji('brown_wolfie'),
-        'type-winter': getSkinEmoji('winteruff'),
-        'type-pups': getSkinEmoji('curious_pups')
+    // Skins equipadas: mini-wolfies con body propio + partículas (ya no emojis sueltos).
+    const productKeyByType = {
+        'type-white': 'white_wolfie',
+        'type-brown': 'brown_wolfie',
+        'type-winter': 'winteruff',
+        'type-pups': 'curious_pups'
     };
 
     for(let i=0; i<gameState.currentMaxSlots; i++) {
@@ -32,11 +32,9 @@ function updateStoreMapView() {
         slot.classList.add('slot');
         if(stocks[i]) {
             slot.classList.add('filled', stocks[i]);
-            const emoji = skinEmojis[stocks[i]];
-            if (emoji) {
-                slot.textContent = emoji;
-                slot.classList.add('has-skin');
-            }
+            const skinClass = getSkinClass(productKeyByType[stocks[i]]);
+            if (skinClass) slot.classList.add('has-skin', skinClass);
+            slot.appendChild(buildSkinElement(productKeyByType[stocks[i]], { baseFallback: 'var(--' + (stocks[i]==='type-white'?'white-box':stocks[i]==='type-brown'?'accent-orange':stocks[i]==='type-winter'?'accent-cyan':'accent-pup') + ')' }));
         }
         grid.appendChild(slot);
     }
@@ -60,10 +58,11 @@ function renderCustomers() {
         const tag = document.createElement('span');
         tag.classList.add('customer-name-tag');
         let icon = '⬜'; if(cust.desiredType==='brown') icon='🟤'; if(cust.desiredType==='winter') icon='❄️'; if(cust.desiredType==='pups') icon='🐾';
-        // Skin equipada del producto deseado (si existe)
-        const productKeyByIcon = { '⬜': 'white_wolfie', '🟤': 'brown_wolfie', '❄️': 'winteruff', '🐾': 'curious_pups' };
-        const skinEmoji = getSkinEmoji(productKeyByIcon[icon]);
-        if (skinEmoji) icon = skinEmoji;
+        // Skin equipada del producto deseado: se pinta como body visual real bajo el blob.
+        const productKeyByType = { 'white': 'white_wolfie', 'brown': 'brown_wolfie', 'winter': 'winteruff', 'pups': 'curious_pups' };
+        const skinProductKey = productKeyByType[cust.desiredType];
+        const skinClass = getSkinClass(skinProductKey);
+        if (skinClass) blob.classList.add('has-skin', skinClass);
         
         // Lógica de estilo para la comunidad
         if (cust.isCommunity) {
@@ -78,6 +77,11 @@ function renderCustomers() {
 
         tag.textContent = `${cust.name.split(' ')[0]} ${icon}x${cust.desiredQty}`;
         blob.appendChild(tag);
+
+        // Skin real del producto deseado: mini-wolfie con body propio + partículas.
+        if (skinClass) {
+            blob.appendChild(buildSkinElement(skinProductKey, { extraClass: 'in-blob' }));
+        }
 
         // Renderizado especial del Jefe
         if (cust.isBoss) {
